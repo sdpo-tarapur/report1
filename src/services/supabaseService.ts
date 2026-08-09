@@ -86,17 +86,40 @@ export async function fetchFIRCasesFromSupabase(): Promise<FIRCase[] | null> {
   }
 }
 
-export async function saveFIRCaseToSupabase(firCase: FIRCase): Promise<boolean> {
-  if (!isSupabaseConfigured() || !supabase) return false;
+export async function saveFIRCaseToSupabase(caseItem: FIRCase): Promise<boolean> {
+  if (!isSupabaseConfigured() || !caseItem) return false;
+
   try {
-    const { error } = await supabase.from('fir_cases').upsert([firCase], { onConflict: 'id' });
+    const payload = {
+      id: caseItem.id,
+      fir_number: caseItem.firNumber,
+      ps: caseItem.ps,
+      fir_date: caseItem.firDate,
+      sections: caseItem.sections,
+      complainant_name: caseItem.complainantName,
+      complainant_phone: caseItem.complainantPhone || null,
+      place_of_occurrence: caseItem.placeOfOccurrence,
+      io_name: caseItem.ioName,
+      designation: caseItem.designation,
+      deadline_days: caseItem.deadlineDays,
+      status: caseItem.status,
+      chargesheet_uploaded_cctns: caseItem.chargesheetUploadedCCTNS ?? false,
+      case_diary_uploaded_cctns: caseItem.caseDiaryUploadedCCTNS ?? false,
+      sdpo_supervision_note: caseItem.sdpoSupervisionNote || null,
+      ci_supervision_note: caseItem.ciSupervisionNote || null,
+      ps_progress_remarks: caseItem.psProgressRemarks || null,
+      created_at: caseItem.createdAt,
+      updated_at: caseItem.updatedAt,
+    };
+
+    const { error } = await supabase.from('fir_cases').upsert(payload, { onConflict: 'id' });
     if (error) {
       console.error('Error saving FIR case to Supabase:', error);
       return false;
     }
     return true;
   } catch (err) {
-    console.error('Supabase exception:', err);
+    console.error('Exception saving FIR case to Supabase:', err);
     return false;
   }
 }
