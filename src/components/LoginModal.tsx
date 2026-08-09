@@ -9,7 +9,7 @@ interface LoginModalProps {
   onLoginSuccess: (userAccount: UserAccount) => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, accounts, onLoginSuccess }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, accounts = [], onLoginSuccess }) => {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,38 +19,26 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, accounts, onLogi
 
   const supabaseConnected = isSupabaseConfigured();
 
-const handleLogin = (e?: React.FormEvent) => {
-  if (e) e.preventDefault();
-  setErrorMessage('');
-  const cleanUser = userId.trim().toLowerCase();
-  const cleanPass = password.trim();
+  const handleLogin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setErrorMessage('');
+    const cleanUser = userId.trim().toLowerCase();
+    const cleanPass = password.trim();
 
-  if (!cleanUser || !cleanPass) {
-    setErrorMessage('Please enter both User ID and Password.');
-    return;
-  }
+    if (!cleanUser || !cleanPass) {
+      setErrorMessage('Please enter both User ID and Password.');
+      return;
+    }
 
-  // Safe lookup with optional chaining
-  const match = accounts.find(
-    (acc) =>
-      acc &&
-      typeof acc.userId === 'string' &&
-      acc.userId.toLowerCase() === cleanUser &&
-      acc.password === cleanPass &&
-      acc.isActive
-  );
+    // Match against active accounts safely without throwing undefined errors
+    const match = (accounts || []).find((acc) => {
+      if (!acc) return false;
+      const accUserId = String(acc.userId || '').trim().toLowerCase();
+      const accPass = String(acc.password || '').trim();
+      const isActive = acc.isActive ?? true;
 
-  if (match) {
-    onLoginSuccess(match);
-  } else {
-    setErrorMessage('Invalid User ID or Password. Please check your officer credentials.');
-  }
-};
-
-    // Match against active accounts
-    const match = accounts.find(
-      (acc) => acc.userId.toLowerCase() === cleanUser && acc.password === cleanPass && acc.isActive
-    );
+      return accUserId === cleanUser && accPass === cleanPass && isActive;
+    });
 
     if (match) {
       onLoginSuccess(match);
@@ -59,17 +47,21 @@ const handleLogin = (e?: React.FormEvent) => {
     }
   };
 
+  // Filter accounts safely for quick-login buttons
+  const activeQuickAccounts = (accounts || [])
+    .filter((acc) => acc && (acc.isActive ?? true) && acc.userId)
+    .slice(0, 4);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-        
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 text-center relative border-b border-slate-800">
           <div className="mx-auto w-12 h-12 bg-amber-500/10 border border-amber-400/30 rounded-full flex items-center justify-center text-amber-400 mb-3 shadow-inner">
             <Shield className="w-7 h-7 stroke-[2.5]" />
           </div>
           <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-widest block">
-            BIHAR POLICE • MUNGER DISTRICT
+            BIHAR POLICE — MUNGER DISTRICT
           </span>
           <h2 className="text-xl font-black tracking-tight text-white mt-0.5">
             Tarapur Subdivision Police Portal
@@ -77,7 +69,6 @@ const handleLogin = (e?: React.FormEvent) => {
           <p className="text-xs text-slate-300 mt-1">
             Official Crime & Investigation Monitoring System — Secure Officer Login
           </p>
-
           {/* Supabase Connection Status Badge */}
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border backdrop-blur-xs">
             <Database className="w-3.5 h-3.5" />
@@ -155,49 +146,52 @@ const handleLogin = (e?: React.FormEvent) => {
           </form>
 
           {/* Quick Login Accounts Assistance */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/70 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Official Account Credentials
-              </span>
-              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Click to autofill</span>
+          {activeQuickAccounts.length > 0 && (
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Official Account Credentials
+                </span>
+                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Click to autofill</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {activeQuickAccounts.map((acc) => {
+                  const rankTitle = String(acc.rank || 'Officer').split('(')[0].trim();
+                  return (
+                    <button
+                      key={acc.id || acc.userId}
+                      type="button"
+                      onClick={() => {
+                        setUserId(acc.userId || '');
+                        setPassword(acc.password || '');
+                        setErrorMessage('');
+                      }}
+                      className="text-left p-2 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/50 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-lg transition text-[11px] group cursor-pointer"
+                    >
+                      <div className="font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                        {rankTitle}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono flex items-center justify-between mt-0.5">
+                        <span className="font-bold text-blue-600 dark:text-blue-400">{acc.userId}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {accounts.filter((a) => a.isActive).slice(0, 4).map((acc) => (
-                <button
-                  key={acc.id}
-                  type="button"
-                  onClick={() => {
-                    setUserId(acc.userId);
-                    setPassword(acc.password);
-                    setErrorMessage('');
-                  }}
-                  className="text-left p-2 bg-white dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/50 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-lg transition text-[11px] group cursor-pointer"
-                >
-                  <div className="font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                    {acc.rank.split('(')[0].trim()}
-                  </div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono flex items-center justify-between mt-0.5">
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{acc.userId}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
 
           {/* Security Note */}
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-center">
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-              🔒 Authorized Bihar Police personnel only. All access attempts are logged.
+              Authorized Bihar Police personnel only. All access attempts are logged.
             </span>
           </div>
-
         </div>
 
         <div className="p-3 bg-slate-100 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 text-center text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-          SDPO Tarapur Crime Supervision Portal • Bihar Police
+          SDPO Tarapur Crime Supervision Portal — Bihar Police
         </div>
-
       </div>
     </div>
   );
