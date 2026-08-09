@@ -47,6 +47,10 @@ import {
   saveLandDisputeToSupabase,
   fetchUDCasesFromSupabase,
   saveUDCaseToSupabase,
+  fetchIOsFromSupabase,
+  saveIOToSupabase,
+  fetchDailyReportsFromSupabase,
+  saveDailyReportToSupabase,
 } from './services/supabaseService';
 
 const DEFAULT_FILTERS: FilterOptions = {
@@ -240,6 +244,18 @@ export default function App() {
           setUdCases(udList);
         }
       });
+      // Fetch IOs
+      fetchIOsFromSupabase().then((ioList) => {
+        if (ioList && ioList.length > 0) {
+          setIos(ioList);
+        }
+      });
+      // Fetch Daily Reports
+      fetchDailyReportsFromSupabase().then((reports) => {
+        if (reports && reports.length > 0) {
+          setDailyReports(reports);
+        }
+      });
     }
   }, []);
 
@@ -313,6 +329,7 @@ export default function App() {
       updatedAt: todayStr,
     };
     setCases((prev) => [newCase, ...prev]);
+    saveFIRCaseToSupabase(newCase);
   };
 
   const handleUpdateFIR = (updatedCase: FIRCase) => {
@@ -321,6 +338,7 @@ export default function App() {
       return;
     }
     setCases((prev) => prev.map((c) => (c.id === updatedCase.id ? updatedCase : c)));
+    saveFIRCaseToSupabase(updatedCase);
   };
 
   const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
@@ -333,18 +351,17 @@ export default function App() {
       return;
     }
     const todayStr = new Date().toISOString().split('T')[0];
-    setCases((prev) =>
-      prev.map((c) =>
-        c.id === caseId
-          ? {
-              ...c,
-              designation,
-              designationDate: todayStr,
-              updatedAt: todayStr,
-            }
-          : c
-      )
-    );
+    const targetCase = cases.find((c) => c.id === caseId);
+    if (targetCase) {
+      const updatedCase: FIRCase = {
+        ...targetCase,
+        designation,
+        designationDate: todayStr,
+        updatedAt: todayStr,
+      };
+      setCases((prev) => prev.map((c) => (c.id === caseId ? updatedCase : c)));
+      saveFIRCaseToSupabase(updatedCase);
+    }
   };
 
   // Handlers for Land Disputes
@@ -360,6 +377,7 @@ export default function App() {
       createdAt: todayStr,
     };
     setLandDisputes((prev) => [newDispute, ...prev]);
+    saveLandDisputeToSupabase(newDispute);
   };
 
   const handleUpdateLandDisputeStatus = (
@@ -372,18 +390,17 @@ export default function App() {
       return;
     }
     const todayStr = new Date().toISOString().split('T')[0];
-    setLandDisputes((prev) =>
-      prev.map((l) =>
-        l.id === id
-          ? {
-              ...l,
-              status,
-              disposalDate: status === 'Disposed' ? todayStr : undefined,
-              disposalRemarks: status === 'Disposed' ? disposalRemarks || l.disposalRemarks : undefined,
-            }
-          : l
-      )
-    );
+    const target = landDisputes.find((l) => l.id === id);
+    if (target) {
+      const updated: LandDispute = {
+        ...target,
+        status,
+        disposalDate: status === 'Disposed' ? todayStr : undefined,
+        disposalRemarks: status === 'Disposed' ? disposalRemarks || target.disposalRemarks : undefined,
+      };
+      setLandDisputes((prev) => prev.map((l) => (l.id === id ? updated : l)));
+      saveLandDisputeToSupabase(updated);
+    }
   };
 
   // Handlers for UD Cases
@@ -397,6 +414,7 @@ export default function App() {
       id: `ud-${Date.now()}`,
     };
     setUdCases((prev) => [newUD, ...prev]);
+    saveUDCaseToSupabase(newUD);
   };
 
   const handleUpdateUDCase = (updatedUD: UDCase) => {
@@ -405,6 +423,7 @@ export default function App() {
       return;
     }
     setUdCases((prev) => prev.map((u) => (u.id === updatedUD.id ? updatedUD : u)));
+    saveUDCaseToSupabase(updatedUD);
   };
 
   // Handlers for IOs
@@ -418,6 +437,7 @@ export default function App() {
       id: `io-${Date.now()}`,
     };
     setIos((prev) => [...prev, newIO]);
+    saveIOToSupabase(newIO);
   };
 
   // Handlers for Daily Crime Reports
@@ -431,6 +451,7 @@ export default function App() {
       id: `dcr-${Date.now()}`,
     };
     setDailyReports((prev) => [newReport, ...prev]);
+    saveDailyReportToSupabase(newReport);
   };
 
   // Calculate filtered FIR cases
