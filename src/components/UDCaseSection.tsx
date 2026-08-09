@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UDCase, FIRCase, PoliceStationName, UserRole } from '../types';
 import { formatReadableDate, getPSFromRole } from '../utils/helpers';
-import { Shield, Plus, FileText, CheckCircle2, Clock, AlertCircle, Eye, Edit3, X, FileSpreadsheet, Printer } from 'lucide-react';
+import { Shield, Plus, FileText, CheckCircle2, Clock, AlertCircle, Eye, Edit3, X, FileSpreadsheet, Printer, Trash2 } from 'lucide-react';
 import { exportToExcel, exportToPDF } from '../utils/reportExport';
 
 interface UDCaseSectionProps {
@@ -10,6 +10,7 @@ interface UDCaseSectionProps {
   currentRole: UserRole;
   onAddUDCase: (newUD: Omit<UDCase, 'id'>) => void;
   onUpdateUDCase: (updatedUD: UDCase) => void;
+  onDeleteUDCase?: (id: string) => void;
   onViewFIR: (caseItem: FIRCase) => void;
   onEditFIR: (caseItem: FIRCase) => void;
   isReadOnly?: boolean;
@@ -21,6 +22,7 @@ export const UDCaseSection: React.FC<UDCaseSectionProps> = ({
   currentRole,
   onAddUDCase,
   onUpdateUDCase,
+  onDeleteUDCase,
   onViewFIR,
   onEditFIR,
   isReadOnly = false,
@@ -292,13 +294,23 @@ export const UDCaseSection: React.FC<UDCaseSectionProps> = ({
                 )}
 
                 {!isReadOnly && (
-                  <div className="flex justify-end pt-1">
+                  <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       onClick={() => setEditingUD(u)}
                       className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-3 py-1.5 rounded transition"
                     >
                       Edit Status & Remarks
                     </button>
+                    {onDeleteUDCase && (
+                      <button
+                        onClick={() => onDeleteUDCase(u.id)}
+                        className="bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 hover:bg-rose-600 hover:text-white font-bold text-xs px-3 py-1.5 rounded transition flex items-center gap-1"
+                        title="Delete UD Case"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
