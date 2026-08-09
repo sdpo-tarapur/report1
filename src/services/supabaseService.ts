@@ -160,3 +160,81 @@ export async function saveUDCaseToSupabase(udCase: UDCase): Promise<boolean> {
     return false;
   }
 }
+
+// --- INVESTIGATING OFFICERS (IOs) ---
+export async function fetchIOsFromSupabase(): Promise<InvestigatingOfficer[] | null> {
+  if (!isSupabaseConfigured() || !supabase) return null;
+  try {
+    const { data, error } = await supabase.from('investigating_officers').select('*');
+    if (error) {
+      console.error('Error fetching IOs from Supabase:', error);
+      return null;
+    }
+    return data as InvestigatingOfficer[];
+  } catch (err) {
+    console.error('Supabase exception:', err);
+    return null;
+  }
+}
+
+export async function saveIOToSupabase(io: InvestigatingOfficer): Promise<boolean> {
+  if (!isSupabaseConfigured() || !supabase) return false;
+  try {
+    const { error } = await supabase.from('investigating_officers').upsert([io], { onConflict: 'id' });
+    if (error) {
+      console.error('Error saving IO to Supabase:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase exception:', err);
+    return false;
+  }
+}
+
+export async function deleteIOFromSupabase(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured() || !supabase) return false;
+  try {
+    const { error } = await supabase.from('investigating_officers').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting IO from Supabase:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase exception:', err);
+    return false;
+  }
+}
+
+// --- DAILY CRIME REPORTS ---
+export async function fetchDailyReportsFromSupabase(): Promise<DailyCrimeReport[] | null> {
+  if (!isSupabaseConfigured() || !supabase) return null;
+  try {
+    const { data, error } = await supabase.from('daily_crime_reports').select('*').order('date', { ascending: false });
+    if (error) {
+      console.error('Error fetching daily reports from Supabase:', error);
+      return null;
+    }
+    return data as DailyCrimeReport[];
+  } catch (err) {
+    console.error('Supabase exception:', err);
+    return null;
+  }
+}
+
+export async function saveDailyReportToSupabase(report: DailyCrimeReport): Promise<boolean> {
+  if (!isSupabaseConfigured() || !supabase) return false;
+  try {
+    const { error } = await supabase.from('daily_crime_reports').upsert([report], { onConflict: 'id' });
+    if (error) {
+      console.error('Error saving daily report to Supabase:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase exception:', err);
+    return false;
+  }
+}
+
