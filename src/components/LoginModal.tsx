@@ -19,17 +19,33 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, accounts, onLogi
 
   const supabaseConnected = isSupabaseConfigured();
 
-  const handleLogin = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setErrorMessage('');
+const handleLogin = (e?: React.FormEvent) => {
+  if (e) e.preventDefault();
+  setErrorMessage('');
+  const cleanUser = userId.trim().toLowerCase();
+  const cleanPass = password.trim();
 
-    const cleanUser = userId.trim().toLowerCase();
-    const cleanPass = password.trim();
+  if (!cleanUser || !cleanPass) {
+    setErrorMessage('Please enter both User ID and Password.');
+    return;
+  }
 
-    if (!cleanUser || !cleanPass) {
-      setErrorMessage('Please enter both User ID and Password.');
-      return;
-    }
+  // Safe lookup with optional chaining
+  const match = accounts.find(
+    (acc) =>
+      acc &&
+      typeof acc.userId === 'string' &&
+      acc.userId.toLowerCase() === cleanUser &&
+      acc.password === cleanPass &&
+      acc.isActive
+  );
+
+  if (match) {
+    onLoginSuccess(match);
+  } else {
+    setErrorMessage('Invalid User ID or Password. Please check your officer credentials.');
+  }
+};
 
     // Match against active accounts
     const match = accounts.find(
