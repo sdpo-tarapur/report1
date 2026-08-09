@@ -22,12 +22,15 @@ import {
   Download,
   UserCheck,
   Hourglass,
+  Trash2,
 } from 'lucide-react';
 
 interface SupervisionStatusSectionProps {
   cases: FIRCase[];
   onEditCase: (c: FIRCase) => void;
   onViewCase: (c: FIRCase) => void;
+  onDeleteSupervisionNote?: (caseId: string) => void;
+  onDeleteCase?: (caseId: string) => void;
   currentRole: UserRole;
   isReadOnly?: boolean;
 }
@@ -36,6 +39,8 @@ export const SupervisionStatusSection: React.FC<SupervisionStatusSectionProps> =
   cases,
   onEditCase,
   onViewCase,
+  onDeleteSupervisionNote,
+  onDeleteCase,
   currentRole,
   isReadOnly = false,
 }) => {
@@ -964,14 +969,27 @@ export const SupervisionStatusSection: React.FC<SupervisionStatusSectionProps> =
 
                 {/* SDPO Note Preview */}
                 {c.sdpoSupervisionNote && (
-                  <div className="p-3 bg-purple-50/60 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800/60 text-xs">
-                    <span className="font-bold text-purple-900 dark:text-purple-300 block mb-0.5 flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
-                      <span>SDPO Directive Memo:</span>
-                    </span>
-                    <p className="text-slate-800 dark:text-purple-100 font-medium italic">
-                      "{c.sdpoSupervisionNote}"
-                    </p>
+                  <div className="p-3 bg-purple-50/60 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800/60 text-xs flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-bold text-purple-900 dark:text-purple-300 block mb-0.5 flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-purple-500" />
+                        <span>SDPO Directive Memo:</span>
+                      </span>
+                      <p className="text-slate-800 dark:text-purple-100 font-medium italic">
+                        "{c.sdpoSupervisionNote}"
+                      </p>
+                    </div>
+
+                    {currentRole === 'SDPO' && onDeleteSupervisionNote && (
+                      <button
+                        onClick={() => onDeleteSupervisionNote(c.id)}
+                        className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline shrink-0 flex items-center gap-1 mt-0.5"
+                        title="Delete SDPO Supervision Note"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Clear Note</span>
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -997,6 +1015,16 @@ export const SupervisionStatusSection: React.FC<SupervisionStatusSectionProps> =
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Edit Case & Dates</span>
+                      </button>
+                    )}
+                    {!isReadOnly && onDeleteCase && (
+                      <button
+                        onClick={() => onDeleteCase(c.id)}
+                        className="px-3 py-1.5 bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 hover:bg-rose-600 hover:text-white font-bold text-xs rounded-lg transition flex items-center gap-1"
+                        title="Delete Case Record"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
                       </button>
                     )}
                   </div>
