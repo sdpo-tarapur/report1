@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { InvestigatingOfficer, FIRCase, PoliceStationName, UserRole } from '../types';
-import { UserCheck, Plus, Phone, User, X, FileSpreadsheet, Printer, Shield, FolderOpen, ExternalLink, Calendar, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { UserCheck, Plus, Phone, User, X, FileSpreadsheet, Printer, Shield, FolderOpen, ExternalLink, Calendar, AlertCircle, CheckCircle2, Trash2 } from 'lucide-react';
 import { getPSFromRole, getDeadlineInfo } from '../utils/helpers';
 import { exportToExcel, exportToPDF } from '../utils/reportExport';
 
@@ -8,6 +8,7 @@ interface IOManagementProps {
   ios: InvestigatingOfficer[];
   cases: FIRCase[];
   onAddIO: (newIO: Omit<InvestigatingOfficer, 'id'>) => void;
+  onDeleteIO?: (ioId: string) => void;
   currentRole: UserRole;
   onSelectIOCasesFilter?: (ioName: string) => void;
   isReadOnly?: boolean;
@@ -17,6 +18,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
   ios,
   cases,
   onAddIO,
+  onDeleteIO,
   currentRole,
   onSelectIOCasesFilter,
   isReadOnly = false,
@@ -156,9 +158,24 @@ export const IOManagement: React.FC<IOManagementProps> = ({
                   </div>
                 </div>
 
-                <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                  {io.ps}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                    {io.ps}
+                  </span>
+                  {!isReadOnly && onDeleteIO && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteIO(io.id);
+                      }}
+                      className="p-1 bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 hover:bg-rose-600 hover:text-white rounded transition"
+                      title="Delete Officer Record"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {io.phone && (
