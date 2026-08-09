@@ -320,30 +320,68 @@ export default function App() {
   const isReadOnly = currentUserAccount?.permissionLevel === 'VIEWER';
 
   // Handlers for FIRs
-  const handleCreateFIR = (newCaseData: Omit<FIRCase, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot create new FIR records.');
-      return;
-    }
-    const todayStr = new Date().toISOString().split('T')[0];
-    const newCase: FIRCase = {
-      ...newCaseData,
-      id: `fir-${Date.now()}`,
-      createdAt: todayStr,
-      updatedAt: todayStr,
-    };
-    setCases((prev) => [newCase, ...prev]);
-    saveFIRCaseToSupabase(newCase);
+// Handlers for FIRs
+const handleCreateFIR = (newCaseData: Omit<FIRCase, 'id' | 'createdAt' | 'updatedAt'>) => {
+  if (isReadOnly) {
+    alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot create new FIR records.');
+    return;
+  }
+  const todayStr = new Date().toISOString().split('T')[0];
+  const newCase: FIRCase = {
+    ...newCaseData,
+    id: `fir-${Date.now()}`,
+    createdAt: todayStr,
+    updatedAt: todayStr,
   };
 
-  const handleUpdateFIR = (updatedCase: FIRCase) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot modify case records.');
-      return;
+  // 1. Update React local state
+  setCases((prev) => [newCase, ...prev]);
+
+  // 2. Sync FIR record directly to Supabase!
+  saveFIRCaseToSupabase(newCase);
+};
+
+const handleUpdateFIR = (updatedCase: FIRCase) => {
+  if (isReadOnly) {
+    alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot modify case records.');
+    return;
+  }
+
+  // 1. Update React local state
+  setCases((prev) => prev.map((c) => (c.id === updatedCase.id ? updatedCase : c)));
+
+  // 2. Sync updated FIR record to Supabase!
+  saveFIRCaseToSupabase(updatedCase);
+};
+
+const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
+  if (isReadOnly) {
+    alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
+    return;
+  }
+  if (currentRole !== 'SDPO') {
+    alert('Only SDPO (Super User) has authority to classify cases as SR or NON-SR.');
+    return;
+  }
+  const todayStr = new Date().toISOString().split('T')[0];
+  
+  const updatedList = cases.map((c) => {
+    if (c.id === caseId) {
+      const updated = {
+        ...c,
+        designation,
+        designationDate: todayStr,
+        updatedAt: todayStr,
+      };
+      // Sync SR/NON-SR classification toggle to Supabase
+      saveFIRCaseToSupabase(updated);
+      return updated;
     }
-    setCases((prev) => prev.map((c) => (c.id === updatedCase.id ? updatedCase : c)));
-    saveFIRCaseToSupabase(updatedCase);
-  };
+    return c;
+  });
+
+  setCases(updatedList);
+};
 
   const handleDeleteFIR = (caseId: string) => {
     if (isReadOnly) {
