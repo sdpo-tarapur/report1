@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FIRCase, UserRole, CaseDesignation } from '../types';
 import { getDeadlineInfo, formatReadableDate } from '../utils/helpers';
-import { Shield, ShieldAlert, Eye, Edit3, CloudUpload, Clock, FileCheck, CheckCircle2, User, MapPin, Tag } from 'lucide-react';
+import { Shield, ShieldAlert, Eye, Edit3, CloudUpload, Clock, FileCheck, CheckCircle2, User, MapPin, Tag, Trash2 } from 'lucide-react';
 
 interface FIRTableProps {
   cases: FIRCase[];
@@ -9,6 +9,7 @@ interface FIRTableProps {
   onViewCase: (caseItem: FIRCase) => void;
   onEditCase: (caseItem: FIRCase) => void;
   onDesignateCase: (caseId: string, designation: CaseDesignation) => void;
+  onDeleteCase?: (caseId: string) => void;
   isReadOnly?: boolean;
 }
 
@@ -18,6 +19,7 @@ export const FIRTable: React.FC<FIRTableProps> = ({
   onViewCase,
   onEditCase,
   onDesignateCase,
+  onDeleteCase,
   isReadOnly = false,
 }) => {
   const isSuperUser = currentRole === 'SDPO';
@@ -205,6 +207,17 @@ export const FIRTable: React.FC<FIRTableProps> = ({
                         >
                           <Edit3 className="w-3 h-3" />
                           <span>Edit</span>
+                        </button>
+                      )}
+
+                      {!isReadOnly && onDeleteCase && (
+                        <button
+                          onClick={() => onDeleteCase(c.id)}
+                          className="p-1 bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white rounded font-semibold transition flex items-center gap-1 text-[10px] px-2"
+                          title="Delete FIR Case Record"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Delete</span>
                         </button>
                       )}
                     </div>
