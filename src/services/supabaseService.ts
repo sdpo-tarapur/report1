@@ -9,16 +9,33 @@ import { UserAccount, FIRCase, LandDispute, UDCase, InvestigatingOfficer, DailyC
 
 // --- USER ACCOUNTS ---
 export async function fetchUserAccountsFromSupabase(): Promise<UserAccount[] | null> {
-  if (!isSupabaseConfigured() || !supabase) return null;
+  if (!isSupabaseConfigured()) return null;
+
   try {
     const { data, error } = await supabase.from('user_accounts').select('*');
     if (error) {
-      console.error('Error fetching user accounts from Supabase:', error);
+      console.error('Supabase fetch user_accounts error:', error);
       return null;
     }
-    return data as UserAccount[];
+
+    if (!data) return [];
+
+    // Safely map Supabase rows to UserAccount objects
+    return data.map((row: any) => ({
+      id: String(row.id || `user-${Date.now()}`),
+      // Handle both camelCase (userId) and snake_case (user_id) column names safely
+      userId: String(row.userId || row.user_id || '').trim(),
+      password: String(row.password || ''),
+      role: row.role || 'SDPO',
+      permissionLevel: row.permissionLevel || row.permission_level || 'EDITOR',
+      officerName: String(row.officerName || row.officer_name || 'Officer'),
+      rank: String(row.rank || 'Police Officer'),
+      policeStation: row.policeStation || row.police_station || 'Subdivision HQ',
+      contactNumber: row.contactNumber || row.contact_number || '',
+      isActive: row.isActive ?? row.is_active ?? true,
+    }));
   } catch (err) {
-    console.error('Supabase exception:', err);
+    console.error('Failed to fetch user accounts:', err);
     return null;
   }
 }
