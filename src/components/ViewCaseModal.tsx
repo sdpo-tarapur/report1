@@ -1,13 +1,14 @@
 import React from 'react';
 import { FIRCase } from '../types';
 import { getDeadlineInfo, formatReadableDate } from '../utils/helpers';
-import { X, Shield, Printer, MapPin, User, FileText, Clock, CloudUpload, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Shield, Printer, MapPin, User, FileText, Clock, CloudUpload, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 
 interface ViewCaseModalProps {
   caseItem: FIRCase | null;
   isOpen: boolean;
   onClose: () => void;
   onEdit: (caseItem: FIRCase) => void;
+  onDeleteCase?: (caseId: string) => void;
   isReadOnly?: boolean;
 }
 
@@ -16,6 +17,7 @@ export const ViewCaseModal: React.FC<ViewCaseModalProps> = ({
   isOpen,
   onClose,
   onEdit,
+  onDeleteCase,
   isReadOnly = false,
 }) => {
   if (!isOpen || !caseItem) return null;
@@ -314,6 +316,18 @@ export const ViewCaseModal: React.FC<ViewCaseModalProps> = ({
             Last Updated: {formatReadableDate(caseItem.updatedAt)}
           </div>
           <div className="flex items-center gap-2">
+            {!isReadOnly && onDeleteCase && (
+              <button
+                onClick={() => {
+                  onDeleteCase(caseItem.id);
+                  onClose();
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 font-bold rounded-xl text-white flex items-center gap-1.5"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Case</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 font-bold rounded-xl text-slate-800 dark:text-slate-200"
