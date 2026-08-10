@@ -64,37 +64,47 @@ INSTRUCTIONS:
 - Respond in clear, professional Markdown format with bullet points and bold headings.
 `;
 
-  // Updated URL using stable gemini-1.5-flash model endpoint
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  // List of candidate models to try in sequence
+  const candidateModels = [
+    'gemini-2.5-flash',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-pro',
+  ];
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: promptText }],
-          },
-        ],
-      }),
-    });
+  let lastErrorMessage = '';
 
-    const data = await response.json();
+  // Try each model until one succeeds
+  for (const modelName of candidateModels) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
-    if (!response.ok || data.error) {
-      console.error('Gemini API Error details:', data.error);
-      return `❌ Gemini API Error (${data.error?.code || response.status}): ${
-        data.error?.message || 'Unable to fetch response.'
-      }`;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: promptText }],
+            },
+          ],
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && !data.error) {
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (reply) return reply;
+      } else {
+        lastErrorMessage = data.error?.message || `HTTP ${response.status}`;
+      }
+    } catch (err: any) {
+      lastErrorMessage = err.message || 'Network fetch error';
     }
-
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    return reply || 'No response generated from Gemini.';
-  } catch (err: any) {
-    console.error('Fetch Exception:', err);
-    return `❌ Network error connecting to Gemini API: ${err.message || 'Check network connection.'}`;
   }
+
+  return `❌ Gemini API Connection Error: ${lastErrorMessage}. Please verify that your Gemini API Key is active in Google AI Studio.`;
 }
