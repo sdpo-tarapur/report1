@@ -7,7 +7,7 @@ import { UserAccount, FIRCase, LandDispute, UDCase, InvestigatingOfficer, DailyC
  * methods silently return null so local state is used safely.
  */
 
-// --- USER ACCOUNTS ---
+// --- USER ACCOUNTS --- 
 export async function fetchUserAccountsFromSupabase(): Promise<UserAccount[] | null> {
   if (!isSupabaseConfigured()) return null;
 
