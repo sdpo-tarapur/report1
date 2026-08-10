@@ -10,6 +10,7 @@ import {
   FilterOptions,
   CaseDesignation,
   PoliceStationName,
+  IOStatus,
 } from './types';
 import {
   INITIAL_USER_ACCOUNTS,
@@ -114,13 +115,13 @@ export default function App() {
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
 
   const [cases, setCases] = useState<FIRCase[]>(() => {
-  try {
-    const saved = localStorage.getItem('sdpo_firs');
-    return saved ? JSON.parse(saved) : INITIAL_FIRS;
-  } catch {
-    return INITIAL_FIRS;
-  }
-});
+    try {
+      const saved = localStorage.getItem('sdpo_firs');
+      return saved ? JSON.parse(saved) : INITIAL_FIRS;
+    } catch {
+      return INITIAL_FIRS;
+    }
+  });
 
   // Persistent State
   const [currentRole, setCurrentRole] = useState<UserRole>(() => {
@@ -134,7 +135,6 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-
 
   const [landDisputes, setLandDisputes] = useState<LandDispute[]>(() => {
     try {
@@ -180,7 +180,7 @@ export default function App() {
   const [editingCase, setEditingCase] = useState<FIRCase | null>(null);
   const [viewingCase, setViewingCase] = useState<FIRCase | null>(null);
 
-  // Save user accounts to LocalStorage
+  // Save to LocalStorage
   useEffect(() => {
     localStorage.setItem('sdpo_user_accounts', JSON.stringify(userAccounts));
   }, [userAccounts]);
@@ -193,7 +193,6 @@ export default function App() {
     }
   }, [currentUserAccount]);
 
-  // Save to LocalStorage
   useEffect(() => {
     localStorage.setItem('sdpo_current_role', currentRole);
   }, [currentRole]);
@@ -221,41 +220,23 @@ export default function App() {
   // Supabase Initial Sync on Mount
   useEffect(() => {
     if (isSupabaseConfigured()) {
-      // Fetch User Accounts
       fetchUserAccountsFromSupabase().then((accounts) => {
-        if (accounts && accounts.length > 0) {
-          setUserAccounts(accounts);
-        }
+        if (accounts && accounts.length > 0) setUserAccounts(accounts);
       });
-      // Fetch FIR cases
       fetchFIRCasesFromSupabase().then((firList) => {
-        if (firList && firList.length > 0) {
-          setCases(firList);
-        }
+        if (firList && firList.length > 0) setCases(firList);
       });
-      // Fetch Land disputes
       fetchLandDisputesFromSupabase().then((landList) => {
-        if (landList && landList.length > 0) {
-          setLandDisputes(landList);
-        }
+        if (landList && landList.length > 0) setLandDisputes(landList);
       });
-      // Fetch UD cases
       fetchUDCasesFromSupabase().then((udList) => {
-        if (udList && udList.length > 0) {
-          setUdCases(udList);
-        }
+        if (udList && udList.length > 0) setUdCases(udList);
       });
-      // Fetch IOs
       fetchIOsFromSupabase().then((ioList) => {
-        if (ioList && ioList.length > 0) {
-          setIos(ioList);
-        }
+        if (ioList && ioList.length > 0) setIos(ioList);
       });
-      // Fetch Daily Reports
       fetchDailyReportsFromSupabase().then((reports) => {
-        if (reports && reports.length > 0) {
-          setDailyReports(reports);
-        }
+        if (reports && reports.length > 0) setDailyReports(reports);
       });
     }
   }, []);
@@ -272,7 +253,6 @@ export default function App() {
 
   const handleRoleChange = (role: UserRole) => {
     setCurrentRole(role);
-    // Find matching account or update current account role
     const matchingAccount = userAccounts.find((a) => a.role === role);
     if (matchingAccount) {
       setCurrentUserAccount(matchingAccount);
@@ -310,16 +290,13 @@ export default function App() {
     }
   };
 
-  // Active PS if user is a Police Station login
   const activePS = getPSFromRole(currentRole);
-
-  // Read-Only permission level check
   const isReadOnly = currentUserAccount?.permissionLevel === 'VIEWER';
 
   // Handlers for FIRs
   const handleCreateFIR = (newCaseData: Omit<FIRCase, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot create new FIR records.');
+      alert('Permission Denied: Read-Only mode.');
       return;
     }
     const todayStr = new Date().toISOString().split('T')[0];
@@ -335,7 +312,7 @@ export default function App() {
 
   const handleUpdateFIR = (updatedCase: FIRCase) => {
     if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot modify case records.');
+      alert('Permission Denied: Read-Only mode.');
       return;
     }
     setCases((prev) => prev.map((c) => (c.id === updatedCase.id ? updatedCase : c)));
@@ -343,12 +320,9 @@ export default function App() {
   };
 
   const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
+    if (isReadOnly) return;
     if (currentRole !== 'SDPO') {
-      alert('Only SDPO (Super User) has authority to classify cases as SR or NON-SR.');
+      alert('Only SDPO has authority to classify cases.');
       return;
     }
     const todayStr = new Date().toISOString().split('T')[0];
@@ -367,10 +341,7 @@ export default function App() {
 
   // Handlers for Land Disputes
   const handleAddLandDispute = (newDisputeData: Omit<LandDispute, 'id' | 'createdAt'>) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
+    if (isReadOnly) return;
     const todayStr = new Date().toISOString().split('T')[0];
     const newDispute: LandDispute = {
       ...newDisputeData,
@@ -386,10 +357,7 @@ export default function App() {
     status: 'Pending' | 'Disposed',
     disposalRemarks?: string
   ) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
+    if (isReadOnly) return;
     const todayStr = new Date().toISOString().split('T')[0];
     const target = landDisputes.find((l) => l.id === id);
     if (target) {
@@ -406,10 +374,7 @@ export default function App() {
 
   // Handlers for UD Cases
   const handleAddUDCase = (newUDData: Omit<UDCase, 'id'>) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
+    if (isReadOnly) return;
     const newUD: UDCase = {
       ...newUDData,
       id: `ud-${Date.now()}`,
@@ -419,20 +384,14 @@ export default function App() {
   };
 
   const handleUpdateUDCase = (updatedUD: UDCase) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
+    if (isReadOnly) return;
     setUdCases((prev) => prev.map((u) => (u.id === updatedUD.id ? updatedUD : u)));
     saveUDCaseToSupabase(updatedUD);
   };
 
   // Handlers for IOs
   const handleAddIO = (newIOData: Omit<InvestigatingOfficer, 'id'>) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
+    if (isReadOnly) return;
     const newIO: InvestigatingOfficer = {
       ...newIOData,
       id: `io-${Date.now()}`,
@@ -441,12 +400,24 @@ export default function App() {
     saveIOToSupabase(newIO);
   };
 
+  // ✅ ADDED: Handler to update IO Status (Active/Transferred) and Sync to Supabase
+  const handleUpdateIOStatus = (ioId: string, status: IOStatus, phone?: string) => {
+    if (isReadOnly) return;
+    setIos((prev) =>
+      prev.map((io) => {
+        if (io.id === ioId) {
+          const updated = { ...io, status, phone: phone || io.phone };
+          saveIOToSupabase(updated);
+          return updated;
+        }
+        return io;
+      })
+    );
+  };
+
   // Handlers for Daily Crime Reports
   const handleAddDailyReport = (newReportData: Omit<DailyCrimeReport, 'id'>) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
+    if (isReadOnly) return;
     const newReport: DailyCrimeReport = {
       ...newReportData,
       id: `dcr-${Date.now()}`,
@@ -455,12 +426,10 @@ export default function App() {
     saveDailyReportToSupabase(newReport);
   };
 
-  // Calculate filtered FIR cases
+  // Filtered FIR cases logic
   const visibleCases = cases.filter((c) => {
-    // Role-based PS restriction
     if (activePS && c.ps !== activePS) return false;
 
-    // Filters
     if (filters.policeStations && filters.policeStations.length > 0 && !filters.policeStations.includes(c.ps)) {
       return false;
     }
@@ -481,7 +450,6 @@ export default function App() {
       return false;
     }
 
-    // CCTNS Sync Filter
     if (filters.cctnsSyncFilter === 'CS_SYNC' && (!c.chargesheetUploadedCCTNS || c.caseDiaryUploadedCCTNS)) return false;
     if (filters.cctnsSyncFilter === 'CD_SYNC' && (!c.caseDiaryUploadedCCTNS || c.chargesheetUploadedCCTNS)) return false;
     if (filters.cctnsSyncFilter === 'BOTH_SYNC' && (!c.chargesheetUploadedCCTNS || !c.caseDiaryUploadedCCTNS)) return false;
@@ -493,11 +461,9 @@ export default function App() {
     if (filters.caseDiaryCCTNS === 'YES' && !c.caseDiaryUploadedCCTNS) return false;
     if (filters.caseDiaryCCTNS === 'NO' && c.caseDiaryUploadedCCTNS) return false;
 
-    // Deadline Status filter
     const deadlineInfo = getDeadlineInfo(c);
     if (filters.deadlineStatus !== 'ALL' && deadlineInfo.code !== filters.deadlineStatus) return false;
 
-    // Search Query
     if (filters.searchQuery && filters.searchQuery.trim()) {
       const q = filters.searchQuery.toLowerCase();
       const match =
@@ -509,7 +475,6 @@ export default function App() {
       if (!match) return false;
     }
 
-    // Date range
     if (filters.startDate && c.firDate < filters.startDate) return false;
     if (filters.endDate && c.firDate > filters.endDate) return false;
 
@@ -520,7 +485,6 @@ export default function App() {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
-  // Global overdue count
   const overdueCount = cases.filter((c) => {
     if (activePS && c.ps !== activePS) return false;
     return getDeadlineInfo(c).code === 'OVERDUE';
@@ -548,8 +512,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased">
-      
-      {/* Primary Header */}
       <Header
         currentRole={currentRole}
         onRoleChange={handleRoleChange}
@@ -568,10 +530,7 @@ export default function App() {
         isReadOnly={isReadOnly}
       />
 
-      {/* Main Body Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        
-        {/* Tab 1: Dashboard Stats */}
         {activeTab === 'dashboard' && (
           <DashboardStats
             cases={cases}
@@ -586,7 +545,6 @@ export default function App() {
           />
         )}
 
-        {/* Tab 2: FIR & Case Register */}
         {activeTab === 'firs' && (
           <div className="space-y-4">
             <FIRFilterBar
@@ -610,7 +568,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 3: 60/90 Days Deadline Monitor */}
         {activeTab === 'deadlines' && (
           <DeadlineMonitor
             cases={activePS ? cases.filter((c) => c.ps === activePS) : cases}
@@ -620,7 +577,6 @@ export default function App() {
           />
         )}
 
-        {/* Tab 4: Land Dispute Register */}
         {activeTab === 'land_disputes' && (
           <LandDisputeSection
             landDisputes={landDisputes}
@@ -633,7 +589,6 @@ export default function App() {
           />
         )}
 
-        {/* Tab 5: UD & NON-SR Desk */}
         {activeTab === 'ud_cases' && (
           <UDCaseSection
             udCases={udCases}
@@ -647,7 +602,6 @@ export default function App() {
           />
         )}
 
-        {/* Supervision Status Tab (Super User / SDPO Only) */}
         {activeTab === 'supervision' && currentRole === 'SDPO' && (
           <SupervisionStatusSection
             cases={cases}
@@ -658,12 +612,13 @@ export default function App() {
           />
         )}
 
-        {/* Tab 6: IO List & Allocation */}
+        {/* ✅ FIX: Passed onUpdateIOStatus prop to IOManagement */}
         {activeTab === 'ios' && (
           <IOManagement
             ios={ios}
             cases={cases}
             onAddIO={handleAddIO}
+            onUpdateIOStatus={handleUpdateIOStatus}
             currentRole={currentRole}
             onSelectIOCasesFilter={(ioName) => {
               setFilters((prev) => ({ ...prev, ioNames: [ioName] }));
@@ -673,7 +628,6 @@ export default function App() {
           />
         )}
 
-        {/* Tab 7: Daily PS Crime Reports */}
         {activeTab === 'daily_reports' && (
           <DailyCrimeReportSection
             reports={dailyReports}
@@ -682,7 +636,6 @@ export default function App() {
             isReadOnly={isReadOnly}
           />
         )}
-
       </main>
 
       {/* Modals */}
@@ -724,24 +677,16 @@ export default function App() {
         onResetToDefaults={handleResetUserAccountsToDefaults}
       />
 
-      <LoginModal
-        isOpen={!currentUserAccount}
-        accounts={userAccounts}
-        onLoginSuccess={handleLoginSuccess}
-      />
-
-      {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 text-xs py-4 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 text-center space-y-1">
           <p className="font-semibold text-slate-300">
-            Official Crime Supervision & CCTNS Progress Portal — SDPO Tarapur Subdivision (Bihar Police)
+            Official Crime Supervision &amp; CCTNS Progress Portal — SDPO Tarapur Subdivision (Bihar Police)
           </p>
           <p className="text-slate-500 text-[11px]">
             Tarapur PS • Asarganj PS • Sangrampur PS • Harpur PS • Munger Police District
           </p>
         </div>
       </footer>
-
     </div>
   );
 }
