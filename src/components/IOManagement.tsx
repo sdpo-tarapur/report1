@@ -222,7 +222,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
             >
               <option value="ALL">All Case Loads</option>
               <option value="HAS_SR">Handling Special Reports (SR)</option>
-              <option value="HAS_OVERDUE">Has Overdue (>60/90d) Cases</option>
+             <option value="HAS_OVERDUE">Has Overdue (&gt;60/90d) Cases</option>
             </select>
           </div>
         </div>
