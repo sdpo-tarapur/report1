@@ -35,7 +35,9 @@ import { DailyCrimeReportSection } from './components/DailyCrimeReport';
 import { SupervisionStatusSection } from './components/SupervisionStatusSection';
 import { LoginModal } from './components/LoginModal';
 import { UserManagementModal } from './components/UserManagementModal';
+import { AIChatbotModal } from './components/AIChatbotModal';
 import { isSupabaseConfigured } from './lib/supabase';
+import { Sparkles } from 'lucide-react';
 import {
   fetchUserAccountsFromSupabase,
   saveUserAccountToSupabase,
@@ -53,37 +55,6 @@ import {
   saveDailyReportToSupabase,
 } from './services/supabaseService';
 
-import { AIChatbotModal } from './components/AIChatbotModal';
-import { Sparkles } from 'lucide-react';
-
-// Inside App component:
-const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-
-return (
-  <div className="...">
-    {/* Header & Main Content */}
-    
-    {/* FLOATING AI CHATBOT TRIGGER BUTTON */}
-    <button
-      onClick={() => setIsChatbotOpen(!isChatbotOpen)}
-      className="fixed bottom-5 right-5 z-40 p-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-full shadow-2xl border-2 border-white/20 flex items-center gap-2 transition-transform hover:scale-105"
-    >
-      <Sparkles className="w-5 h-5 text-amber-300" />
-      <span className="text-xs font-extrabold pr-1 hidden sm:inline">AI Police Assistant</span>
-    </button>
-
-    {/* AI CHATBOT MODAL */}
-    <AIChatbotModal
-      isOpen={isChatbotOpen}
-      onClose={() => setIsChatbotOpen(false)}
-      cases={cases}
-      landDisputes={landDisputes}
-      udCases={udCases}
-      ios={ios}
-      currentRole={currentRole}
-    />
-  </div>
-);
 const DEFAULT_FILTERS: FilterOptions = {
   searchQuery: '',
   policeStations: [],
@@ -144,8 +115,9 @@ export default function App() {
   });
 
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
 
-  // Application Data States
+  // Core Data States
   const [cases, setCases] = useState<FIRCase[]>(() => {
     try {
       const saved = localStorage.getItem('sdpo_firs');
@@ -211,7 +183,7 @@ export default function App() {
   const [editingCase, setEditingCase] = useState<FIRCase | null>(null);
   const [viewingCase, setViewingCase] = useState<FIRCase | null>(null);
 
-  // LocalStorage Persistence Sync
+  // LocalStorage Persistence
   useEffect(() => {
     localStorage.setItem('sdpo_user_accounts', JSON.stringify(userAccounts));
   }, [userAccounts]);
@@ -327,7 +299,7 @@ export default function App() {
   // Handlers for FIRs
   const handleCreateFIR = (newCaseData: Omit<FIRCase, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (isReadOnly) {
-      alert('Permission Denied: Read-Only mode.');
+      alert('Permission Denied: Read-Only access.');
       return;
     }
     const todayStr = new Date().toISOString().split('T')[0];
@@ -343,7 +315,7 @@ export default function App() {
 
   const handleUpdateFIR = (updatedCase: FIRCase) => {
     if (isReadOnly) {
-      alert('Permission Denied: Read-Only mode.');
+      alert('Permission Denied: Read-Only access.');
       return;
     }
     setCases((prev) => prev.map((c) => (c.id === updatedCase.id ? updatedCase : c)));
@@ -643,7 +615,7 @@ export default function App() {
           />
         )}
 
-        {/* Supervision Status Tab (Super User / SDPO Only) */}
+        {/* Supervision Status Tab (SDPO Only) */}
         {activeTab === 'supervision' && currentRole === 'SDPO' && (
           <SupervisionStatusSection
             cases={cases}
@@ -680,6 +652,27 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Floating AI Chatbot Trigger */}
+      <button
+        onClick={() => setIsChatbotOpen(!isChatbotOpen)}
+        className="fixed bottom-5 right-5 z-40 p-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-full shadow-2xl border-2 border-white/20 flex items-center gap-2 transition-transform hover:scale-105 cursor-pointer"
+        title="Ask SDPO AI Crime Assistant"
+      >
+        <Sparkles className="w-5 h-5 text-amber-300" />
+        <span className="text-xs font-extrabold pr-1 hidden sm:inline">AI Police Assistant</span>
+      </button>
+
+      {/* AI Chatbot Modal Widget */}
+      <AIChatbotModal
+        isOpen={isChatbotOpen}
+        onClose={() => setIsChatbotOpen(false)}
+        cases={cases}
+        landDisputes={landDisputes}
+        udCases={udCases}
+        ios={ios}
+        currentRole={currentRole}
+      />
 
       {/* Modals */}
       <NewFIREntryModal
@@ -720,13 +713,6 @@ export default function App() {
         onResetToDefaults={handleResetUserAccountsToDefaults}
       />
 
-      <LoginModal
-        isOpen={!currentUserAccount}
-        accounts={userAccounts}
-        onLoginSuccess={handleLoginSuccess}
-      />
-
-      {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 text-xs py-4 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 text-center space-y-1">
           <p className="font-semibold text-slate-300">
