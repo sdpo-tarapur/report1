@@ -18,7 +18,7 @@ import {
   INITIAL_UD_CASES,
   INITIAL_IOS,
   INITIAL_CRIME_REPORTS,
-} from './data/mockData';
+} from '../data/mockData';
 import { getDeadlineInfo, getPSFromRole } from './utils/helpers';
 import { Header } from './components/Header';
 import { DashboardStats } from './components/DashboardStats';
