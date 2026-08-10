@@ -64,17 +64,15 @@ INSTRUCTIONS:
 - Respond in clear, professional Markdown format with bullet points and bold headings.
 `;
 
-  // List of candidate models to try in sequence
+  // Active Gemini models supported on Google AI Studio
   const candidateModels = [
-    'gemini-2.5-flash',
-    'gemini-1.5-flash',
     'gemini-2.0-flash',
-    'gemini-1.5-pro',
+    'gemini-1.5-flash-latest',
+    'gemini-2.0-flash-lite',
   ];
 
   let lastErrorMessage = '';
 
-  // Try each model until one succeeds
   for (const modelName of candidateModels) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
@@ -106,5 +104,5 @@ INSTRUCTIONS:
     }
   }
 
-  return `❌ Gemini API Connection Error: ${lastErrorMessage}. Please verify that your Gemini API Key is active in Google AI Studio.`;
+  return `❌ Gemini API Error: ${lastErrorMessage}. Please verify your API Key in Google AI Studio.`;
 }
