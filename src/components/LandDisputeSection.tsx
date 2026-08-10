@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LandDispute, PoliceStationName, UserRole } from '../types';
 import { formatReadableDate, getPSFromRole } from '../utils/helpers';
-import { Scale, Plus, Search, RotateCcw, CheckCircle2, AlertCircle, Calendar, MapPin, Check, X, FileSpreadsheet, Printer, Trash2 } from 'lucide-react';
+import { Scale, Plus, Search, RotateCcw, CheckCircle2, AlertCircle, Calendar, MapPin, Check, X, FileSpreadsheet, Printer } from 'lucide-react';
 import { exportToExcel, exportToPDF } from '../utils/reportExport';
 
 interface LandDisputeSectionProps {
@@ -9,7 +9,6 @@ interface LandDisputeSectionProps {
   currentRole: UserRole;
   onAddLandDispute: (dispute: Omit<LandDispute, 'id' | 'createdAt'>) => void;
   onUpdateLandDisputeStatus: (id: string, status: 'Pending' | 'Disposed', disposalRemarks?: string) => void;
-  onDeleteLandDispute?: (id: string) => void;
   isNewModalOpen: boolean;
   setIsNewModalOpen: (open: boolean) => void;
   isReadOnly?: boolean;
@@ -20,7 +19,6 @@ export const LandDisputeSection: React.FC<LandDisputeSectionProps> = ({
   currentRole,
   onAddLandDispute,
   onUpdateLandDisputeStatus,
-  onDeleteLandDispute,
   isNewModalOpen,
   setIsNewModalOpen,
   isReadOnly = false,
@@ -413,17 +411,6 @@ export const LandDisputeSection: React.FC<LandDisputeSectionProps> = ({
                       className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-semibold text-xs px-3 py-1.5 rounded transition"
                     >
                       Reopen
-                    </button>
-                  )}
-
-                  {onDeleteLandDispute && (
-                    <button
-                      onClick={() => onDeleteLandDispute(item.id)}
-                      className="w-full bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 hover:bg-rose-600 hover:text-white font-bold text-xs px-3 py-1.5 rounded transition flex items-center justify-center gap-1.5"
-                      title="Delete Land Dispute Record"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
                     </button>
                   )}
                 </div>

@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { DailyCrimeReport, PoliceStationName, UserRole } from '../types';
 import { formatReadableDate, getPSFromRole } from '../utils/helpers';
-import { FileText, Plus, Calendar, Shield, Building2, CheckCircle2, X, FileSpreadsheet, Printer, Trash2 } from 'lucide-react';
+import { FileText, Plus, Calendar, Shield, Building2, CheckCircle2, X, FileSpreadsheet, Printer } from 'lucide-react';
 import { exportToExcel, exportToPDF } from '../utils/reportExport';
 
 interface DailyCrimeReportProps {
   reports: DailyCrimeReport[];
   currentRole: UserRole;
   onAddReport: (newReport: Omit<DailyCrimeReport, 'id'>) => void;
-  onDeleteReport?: (id: string) => void;
   isReadOnly?: boolean;
 }
 
@@ -16,7 +15,6 @@ export const DailyCrimeReportSection: React.FC<DailyCrimeReportProps> = ({
   reports,
   currentRole,
   onAddReport,
-  onDeleteReport,
   isReadOnly = false,
 }) => {
   const activePS = getPSFromRole(currentRole);
@@ -192,19 +190,6 @@ export const DailyCrimeReportSection: React.FC<DailyCrimeReportProps> = ({
               {r.majorIncidentsNotes && (
                 <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded text-slate-800 dark:text-slate-200 text-xs border border-slate-200 dark:border-slate-700">
                   <strong>Notes & Incidents:</strong> {r.majorIncidentsNotes}
-                </div>
-              )}
-
-              {!isReadOnly && onDeleteReport && (
-                <div className="flex justify-end pt-1">
-                  <button
-                    onClick={() => onDeleteReport(r.id)}
-                    className="bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300 hover:bg-rose-600 hover:text-white font-bold text-xs px-3 py-1.5 rounded transition flex items-center gap-1"
-                    title="Delete Daily Report"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Report</span>
-                  </button>
                 </div>
               )}
             </div>
