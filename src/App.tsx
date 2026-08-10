@@ -113,6 +113,15 @@ export default function App() {
 
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
 
+  const [cases, setCases] = useState<FIRCase[]>(() => {
+  try {
+    const saved = localStorage.getItem('sdpo_firs');
+    return saved ? JSON.parse(saved) : INITIAL_FIRS;
+  } catch {
+    return INITIAL_FIRS;
+  }
+});
+
   // Persistent State
   const [currentRole, setCurrentRole] = useState<UserRole>(() => {
     if (currentUserAccount) return currentUserAccount.role;
