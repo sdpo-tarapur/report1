@@ -1,11 +1,5 @@
 // src/services/geminiService.ts
-import { GoogleGenAI } from '@google/genai';
 import { FIRCase, LandDispute, UDCase, InvestigatingOfficer } from '../types';
-
-// Read API key safely from Vite environment variables
-const getApiKey = (): string => {
-  return (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
-};
 
 export async function askGeminiAssistant(
   userQuery: string,
@@ -17,22 +11,19 @@ export async function askGeminiAssistant(
     userRole: string;
   }
 ): Promise<string> {
-  const apiKey = getApiKey();
+  // Read API Key directly from Vite environment
+  const apiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
 
   if (!apiKey) {
-    return '⚠️ Gemini API Key is missing. Please add `VITE_GEMINI_API_KEY` to your environment variables or GitHub Secrets.';
+    return '⚠️ Gemini API Key is missing. Please set `VITE_GEMINI_API_KEY` in your `.env` file or GitHub Secrets.';
   }
 
-  try {
-    // Explicitly initialize with apiKey configuration
-    const ai = new GoogleGenAI({ apiKey });
+  // Build structured prompt with live database context
+  const promptText = `
+YOU ARE THE OFFICIAL AI ASSISTANT FOR SDPO TARAPUR SUBDIVISION PORTAL (BIHAR POLICE).
+Answer queries accurately using ONLY the live dataset provided below.
 
-    // Format dataset for Gemini context
-    const formattedContext = `
-YOU ARE THE AI ASSISTANT FOR THE SUBDIVISIONAL POLICE OFFICE (SDPO) TARAPUR PORTAL.
-Answer queries accurately based ONLY on the provided live police dataset below.
-
---- LIVE DATASET ---
+--- LIVE DATABASE CONTEXT ---
 1. FIR CASES (${contextData.cases.length} records):
 ${JSON.stringify(
   contextData.cases.map((c) => ({
@@ -61,65 +52,49 @@ ${JSON.stringify(contextData.udCases, null, 2)}
 
 4. INVESTIGATING OFFICERS (${contextData.ios.length} records):
 ${JSON.stringify(contextData.ios, null, 2)}
---------------------
+----------------------------
 
 USER ROLE: ${contextData.userRole}
-USER QUESTION: "${userQuery}"
+USER QUERY: "${userQuery}"
 
 INSTRUCTIONS:
-- Answer precisely using bullet points and bold formatting.
-- If asked about murder cases, filter by section IPC 302 or BNS 103.
-- Highlight pending supervision notes or overdue deadlines (>60/90 days) if asked.
+- Search through the FIR cases, Land Disputes, UD cases, and IO roster above.
+- If asked about murder cases, filter by sections (IPC 302 / BNS 103).
+- Highlight pending supervision notes or overdue deadlines (>60/90 days).
+- Respond in clear, professional Markdown format with bullet points and bold headings.
 `;
 
-    // Fetch response with gemini-2.5-flash model
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: formattedContext,
-    });
-
-    return response.text || 'No response generated.';
-  } catch (err: any) {
-    console.error('Gemini API Error:', err);
-
-    // Fallback REST fetch if browser SDK headers fail on static hosts
-    try {
-      return await fallbackRestGeminiCall(apiKey, userQuery, contextData);
-    } catch (restErr: any) {
-      return `❌ Gemini API Authentication Error: ${err.message || 'Invalid API Key or unauthorized request.'}`;
-    }
-  }
-}
-
-// Reliable REST Fallback for Browser environments
-async function fallbackRestGeminiCall(
-  apiKey: string,
-  userQuery: string,
-  contextData: any
-): Promise<string> {
+  // Direct Google AI REST Endpoint Call
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-  const prompt = `
-YOU ARE THE AI ASSISTANT FOR SDPO TARAPUR PORTAL.
-Answer based strictly on this dataset:
-FIR Cases: ${JSON.stringify(contextData.cases)}
-IO Roster: ${JSON.stringify(contextData.ios)}
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: promptText }],
+          },
+        ],
+      }),
+    });
 
-User Query: ${userQuery}
-`;
+    const data = await response.json();
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-    }),
-  });
+    if (!response.ok || data.error) {
+      console.error('Gemini API Error details:', data.error);
+      return `❌ Gemini API Error (${data.error?.code || response.status}): ${
+        data.error?.message || 'Authentication or quota issue.'
+      }`;
+    }
 
-  const data = await res.json();
-  if (data.error) {
-    throw new Error(data.error.message || 'REST API Call Failed');
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return reply || 'No response generated from Gemini.';
+  } catch (err: any) {
+    console.error('Fetch Exception:', err);
+    return `❌ Network error connecting to Gemini API: ${err.message || 'Check network connection.'}`;
   }
-
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No output generated.';
 }
