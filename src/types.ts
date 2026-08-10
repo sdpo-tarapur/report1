@@ -68,6 +68,64 @@ export interface FIRCase {
   updatedAt: string;
 }
 
+// src/types.ts
+
+export type IOStatus = 'Active' | 'Transferred';
+
+export interface InvestigatingOfficer {
+  id: string;
+  name: string;
+  rank: 'SDPO' | 'Circle Inspector' | 'Inspector' | 'Sub-Inspector (SI)' | 'Asst. Sub-Inspector (ASI)' | 'PTC';
+  ps: PoliceStationName | 'Subdivision HQ';
+  phone?: string;
+  status: IOStatus; // Active or Transferred
+  activeCasesCount?: number;
+}
+
+export interface CaseIOHistoryLog {
+  id: string;
+  caseId: string;
+  ioId?: string;
+  ioName: string;
+  assignedDate: string;
+  relievedDate?: string;
+  transferReason?: string;
+}
+
+export interface FIRCase {
+  id: string;
+  firNumber: string;
+  ps: PoliceStationName;
+  firDate: string;
+  sections: string;
+  complainantName: string;
+  complainantPhone?: string;
+  placeOfOccurrence: string;
+  ioName: string;
+  ioId?: string; // Current IO Reference ID
+  ioHistory?: CaseIOHistoryLog[]; // Complete history of previous IOs
+  designation: CaseDesignation;
+  designationDate?: string;
+  deadlineDays: DeadlineCategory;
+  status: CaseStatus;
+  chargesheetNumber?: string;
+  chargesheetDate?: string;
+  chargesheetUploadedCCTNS: boolean;
+  chargesheetCCTNSDate?: string;
+  caseDiaryUploadedCCTNS: boolean;
+  lastCaseDiaryNo?: string;
+  lastCaseDiaryDate?: string;
+  poVisitDate?: string;
+  supervisionDate?: string;
+  prDates?: string[];
+  finalPrDate?: string;
+  caseReviewDates?: string[];
+  sdpoSupervisionNote?: string;
+  ciSupervisionNote?: string;
+  psProgressRemarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 export interface LandDispute {
   id: string;
   ps: PoliceStationName;
