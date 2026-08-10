@@ -1,360 +1,747 @@
-// src/components/IOManagement.tsx
-import React, { useState } from 'react';
-import { InvestigatingOfficer, FIRCase, PoliceStationName, UserRole, IOStatus } from '../types';
-import { UserCheck, Plus, Phone, User, X, FileSpreadsheet, Printer, Shield, FolderOpen, ExternalLink, Search, Filter, RotateCcw, Edit2 } from 'lucide-react';
-import { getPSFromRole, getDeadlineInfo } from '../utils/helpers';
-import { exportToExcel, exportToPDF } from '../utils/reportExport';
+import React, { useState, useEffect } from 'react';
+import {
+  UserRole,
+  UserAccount,
+  FIRCase,
+  LandDispute,
+  UDCase,
+  InvestigatingOfficer,
+  DailyCrimeReport,
+  FilterOptions,
+  CaseDesignation,
+  PoliceStationName,
+} from './types';
+import {
+  INITIAL_USER_ACCOUNTS,
+  INITIAL_FIRS,
+  INITIAL_LAND_DISPUTES,
+  INITIAL_UD_CASES,
+  INITIAL_IOS,
+  INITIAL_CRIME_REPORTS,
+} from './data/mockData';
+import { getDeadlineInfo, getPSFromRole } from './utils/helpers';
+import { Header } from './components/Header';
+import { DashboardStats } from './components/DashboardStats';
+import { FIRFilterBar } from './components/FIRFilterBar';
+import { FIRTable } from './components/FIRTable';
+import { NewFIREntryModal } from './components/NewFIREntryModal';
+import { EditFIRModal } from './components/EditFIRModal';
+import { ViewCaseModal } from './components/ViewCaseModal';
+import { LandDisputeSection } from './components/LandDisputeSection';
+import { DeadlineMonitor } from './components/DeadlineMonitor';
+import { UDCaseSection } from './components/UDCaseSection';
+import { IOManagement } from './components/IOManagement';
+import { DailyCrimeReportSection } from './components/DailyCrimeReport';
+import { SupervisionStatusSection } from './components/SupervisionStatusSection';
+import { LoginModal } from './components/LoginModal';
+import { UserManagementModal } from './components/UserManagementModal';
+import { isSupabaseConfigured } from './lib/supabase';
+import {
+  fetchUserAccountsFromSupabase,
+  saveUserAccountToSupabase,
+  deleteUserAccountFromSupabase,
+  fetchFIRCasesFromSupabase,
+  saveFIRCaseToSupabase,
+  deleteFIRCaseFromSupabase,
+  fetchLandDisputesFromSupabase,
+  saveLandDisputeToSupabase,
+  fetchUDCasesFromSupabase,
+  saveUDCaseToSupabase,
+  fetchIOsFromSupabase,
+  saveIOToSupabase,
+  fetchDailyReportsFromSupabase,
+  saveDailyReportToSupabase,
+} from './services/supabaseService';
 
-interface IOManagementProps {
-  ios: InvestigatingOfficer[];
-  cases: FIRCase[];
-  onAddIO: (newIO: Omit<InvestigatingOfficer, 'id'>) => void;
-  onUpdateIOStatus: (ioId: string, status: IOStatus, phone?: string) => void;
-  currentRole: UserRole;
-  onSelectIOCasesFilter?: (ioName: string) => void;
-  isReadOnly?: boolean;
-}
+const DEFAULT_FILTERS: FilterOptions = {
+  searchQuery: '',
+  policeStations: [],
+  designations: [],
+  deadlineStatus: 'ALL',
+  statuses: [],
+  cctnsSyncFilter: 'ALL',
+  chargesheetCCTNS: 'ALL',
+  caseDiaryCCTNS: 'ALL',
+  ioNames: [],
+  startDate: '',
+  endDate: '',
+  deadlineCategories: [],
+};
 
-export const IOManagement: React.FC<IOManagementProps> = ({
-  ios = [],
-  cases = [],
-  onAddIO,
-  onUpdateIOStatus,
-  currentRole,
-  onSelectIOCasesFilter,
-  isReadOnly = false,
-}) => {
+export default function App() {
+  // Theme State
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('sdpo_theme');
+    return (saved as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('sdpo_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
+
+  // User Accounts & Security State
+  const [userAccounts, setUserAccounts] = useState<UserAccount[]>(() => {
+    try {
+      const saved = localStorage.getItem('sdpo_user_accounts');
+      return saved ? JSON.parse(saved) : INITIAL_USER_ACCOUNTS;
+    } catch {
+      return INITIAL_USER_ACCOUNTS;
+    }
+  });
+
+  const [currentUserAccount, setCurrentUserAccount] = useState<UserAccount | null>(() => {
+    try {
+      const saved = localStorage.getItem('sdpo_current_user_account');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // fallback
+    }
+    return null;
+  });
+
+  const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
+
+  const [cases, setCases] = useState<FIRCase[]>(() => {
+  try {
+    const saved = localStorage.getItem('sdpo_firs');
+    return saved ? JSON.parse(saved) : INITIAL_FIRS;
+  } catch {
+    return INITIAL_FIRS;
+  }
+});
+
+  // Persistent State
+  const [currentRole, setCurrentRole] = useState<UserRole>(() => {
+    if (currentUserAccount) return currentUserAccount.role;
+    try {
+      const saved = localStorage.getItem('sdpo_current_role');
+      return (saved as UserRole) || 'SDPO';
+    } catch {
+      return 'SDPO';
+    }
+  });
+
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+
+
+  const [landDisputes, setLandDisputes] = useState<LandDispute[]>(() => {
+    try {
+      const saved = localStorage.getItem('sdpo_land_disputes');
+      return saved ? JSON.parse(saved) : INITIAL_LAND_DISPUTES;
+    } catch {
+      return INITIAL_LAND_DISPUTES;
+    }
+  });
+
+  const [udCases, setUdCases] = useState<UDCase[]>(() => {
+    try {
+      const saved = localStorage.getItem('sdpo_ud_cases');
+      return saved ? JSON.parse(saved) : INITIAL_UD_CASES;
+    } catch {
+      return INITIAL_UD_CASES;
+    }
+  });
+
+  const [ios, setIos] = useState<InvestigatingOfficer[]>(() => {
+    try {
+      const saved = localStorage.getItem('sdpo_ios');
+      return saved ? JSON.parse(saved) : INITIAL_IOS;
+    } catch {
+      return INITIAL_IOS;
+    }
+  });
+
+  const [dailyReports, setDailyReports] = useState<DailyCrimeReport[]>(() => {
+    try {
+      const saved = localStorage.getItem('sdpo_daily_reports');
+      return saved ? JSON.parse(saved) : INITIAL_CRIME_REPORTS;
+    } catch {
+      return INITIAL_CRIME_REPORTS;
+    }
+  });
+
+  const [filters, setFilters] = useState<FilterOptions>(DEFAULT_FILTERS);
+
+  // Modals state
+  const [isNewFIRModalOpen, setIsNewFIRModalOpen] = useState(false);
+  const [isNewLandDisputeModalOpen, setIsNewLandDisputeModalOpen] = useState(false);
+  const [editingCase, setEditingCase] = useState<FIRCase | null>(null);
+  const [viewingCase, setViewingCase] = useState<FIRCase | null>(null);
+
+  // Save user accounts to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('sdpo_user_accounts', JSON.stringify(userAccounts));
+  }, [userAccounts]);
+
+  useEffect(() => {
+    if (currentUserAccount) {
+      localStorage.setItem('sdpo_current_user_account', JSON.stringify(currentUserAccount));
+    } else {
+      localStorage.removeItem('sdpo_current_user_account');
+    }
+  }, [currentUserAccount]);
+
+  // Save to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('sdpo_current_role', currentRole);
+  }, [currentRole]);
+
+  useEffect(() => {
+    localStorage.setItem('sdpo_firs', JSON.stringify(cases));
+  }, [cases]);
+
+  useEffect(() => {
+    localStorage.setItem('sdpo_land_disputes', JSON.stringify(landDisputes));
+  }, [landDisputes]);
+
+  useEffect(() => {
+    localStorage.setItem('sdpo_ud_cases', JSON.stringify(udCases));
+  }, [udCases]);
+
+  useEffect(() => {
+    localStorage.setItem('sdpo_ios', JSON.stringify(ios));
+  }, [ios]);
+
+  useEffect(() => {
+    localStorage.setItem('sdpo_daily_reports', JSON.stringify(dailyReports));
+  }, [dailyReports]);
+
+  // Supabase Initial Sync on Mount
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      // Fetch User Accounts
+      fetchUserAccountsFromSupabase().then((accounts) => {
+        if (accounts && accounts.length > 0) {
+          setUserAccounts(accounts);
+        }
+      });
+      // Fetch FIR cases
+      fetchFIRCasesFromSupabase().then((firList) => {
+        if (firList && firList.length > 0) {
+          setCases(firList);
+        }
+      });
+      // Fetch Land disputes
+      fetchLandDisputesFromSupabase().then((landList) => {
+        if (landList && landList.length > 0) {
+          setLandDisputes(landList);
+        }
+      });
+      // Fetch UD cases
+      fetchUDCasesFromSupabase().then((udList) => {
+        if (udList && udList.length > 0) {
+          setUdCases(udList);
+        }
+      });
+      // Fetch IOs
+      fetchIOsFromSupabase().then((ioList) => {
+        if (ioList && ioList.length > 0) {
+          setIos(ioList);
+        }
+      });
+      // Fetch Daily Reports
+      fetchDailyReportsFromSupabase().then((reports) => {
+        if (reports && reports.length > 0) {
+          setDailyReports(reports);
+        }
+      });
+    }
+  }, []);
+
+  // Auth Handlers
+  const handleLoginSuccess = (account: UserAccount) => {
+    setCurrentUserAccount(account);
+    setCurrentRole(account.role);
+  };
+
+  const handleLogout = () => {
+    setCurrentUserAccount(null);
+  };
+
+  const handleRoleChange = (role: UserRole) => {
+    setCurrentRole(role);
+    // Find matching account or update current account role
+    const matchingAccount = userAccounts.find((a) => a.role === role);
+    if (matchingAccount) {
+      setCurrentUserAccount(matchingAccount);
+    }
+  };
+
+  const handleUpdateUserAccount = (updated: UserAccount) => {
+    setUserAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    if (currentUserAccount?.id === updated.id) {
+      setCurrentUserAccount(updated);
+      setCurrentRole(updated.role);
+    }
+    saveUserAccountToSupabase(updated);
+  };
+
+  const handleAddUserAccount = (newAccount: UserAccount) => {
+    setUserAccounts((prev) => [...prev, newAccount]);
+    saveUserAccountToSupabase(newAccount);
+  };
+
+  const handleDeleteUserAccount = (accountId: string) => {
+    if (currentUserAccount?.id === accountId) {
+      alert('Action Denied: You cannot delete your own active account while logged in.');
+      return;
+    }
+    setUserAccounts((prev) => prev.filter((a) => a.id !== accountId));
+    deleteUserAccountFromSupabase(accountId);
+  };
+
+  const handleResetUserAccountsToDefaults = () => {
+    setUserAccounts(INITIAL_USER_ACCOUNTS);
+    if (currentUserAccount) {
+      const match = INITIAL_USER_ACCOUNTS.find((a) => a.role === currentUserAccount.role);
+      if (match) setCurrentUserAccount(match);
+    }
+  };
+
+  // Active PS if user is a Police Station login
   const activePS = getPSFromRole(currentRole);
 
-  // Filter States
-  const [searchQuery, setSearchQuery] = useState('');
-  const [psFilter, setPsFilter] = useState<'ALL' | PoliceStationName | 'Subdivision HQ'>(activePS || 'ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | IOStatus>('ALL');
-  const [rankFilter, setRankFilter] = useState<string>('ALL');
-  const [caseLoadFilter, setCaseLoadFilter] = useState<'ALL' | 'HAS_SR' | 'HAS_OVERDUE'>('ALL');
+  // Read-Only permission level check
+  const isReadOnly = currentUserAccount?.permissionLevel === 'VIEWER';
 
-  // Modal States
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedIO, setSelectedIO] = useState<InvestigatingOfficer | null>(null);
-  const [editingIO, setEditingIO] = useState<InvestigatingOfficer | null>(null);
+  // Handlers for FIRs
+  const handleCreateFIR = (newCaseData: Omit<FIRCase, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot create new FIR records.');
+      return;
+    }
+    const todayStr = new Date().toISOString().split('T')[0];
+    const newCase: FIRCase = {
+      ...newCaseData,
+      id: `fir-${Date.now()}`,
+      createdAt: todayStr,
+      updatedAt: todayStr,
+    };
+    setCases((prev) => [newCase, ...prev]);
+    saveFIRCaseToSupabase(newCase);
+  };
 
-  // Form State
-  const [name, setName] = useState('');
-  const [rank, setRank] = useState<InvestigatingOfficer['rank']>('Sub-Inspector (SI)');
-  const [ps, setPs] = useState<PoliceStationName | 'Subdivision HQ'>(activePS || 'Tarapur');
-  const [phone, setPhone] = useState('');
-  const [status, setStatus] = useState<IOStatus>('Active');
+  const handleUpdateFIR = (updatedCase: FIRCase) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot modify case records.');
+      return;
+    }
+    setCases((prev) => prev.map((c) => (c.id === updatedCase.id ? updatedCase : c)));
+    saveFIRCaseToSupabase(updatedCase);
+  };
 
-  // Filter Logic
-  const filteredIOs = ios.filter((io) => {
-    if (activePS && io.ps !== activePS && io.ps !== 'Subdivision HQ') return false;
-    if (!activePS && psFilter !== 'ALL' && io.ps !== psFilter) return false;
-    if (statusFilter !== 'ALL' && (io.status || 'Active') !== statusFilter) return false;
-    if (rankFilter !== 'ALL' && io.rank !== rankFilter) return false;
+  const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
+      return;
+    }
+    if (currentRole !== 'SDPO') {
+      alert('Only SDPO (Super User) has authority to classify cases as SR or NON-SR.');
+      return;
+    }
+    const todayStr = new Date().toISOString().split('T')[0];
+    const targetCase = cases.find((c) => c.id === caseId);
+    if (targetCase) {
+      const updatedCase: FIRCase = {
+        ...targetCase,
+        designation,
+        designationDate: todayStr,
+        updatedAt: todayStr,
+      };
+      setCases((prev) => prev.map((c) => (c.id === caseId ? updatedCase : c)));
+      saveFIRCaseToSupabase(updatedCase);
+    }
+  };
+
+  // Handlers for Land Disputes
+  const handleAddLandDispute = (newDisputeData: Omit<LandDispute, 'id' | 'createdAt'>) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
+      return;
+    }
+    const todayStr = new Date().toISOString().split('T')[0];
+    const newDispute: LandDispute = {
+      ...newDisputeData,
+      id: `ld-${Date.now()}`,
+      createdAt: todayStr,
+    };
+    setLandDisputes((prev) => [newDispute, ...prev]);
+    saveLandDisputeToSupabase(newDispute);
+  };
+
+  const handleUpdateLandDisputeStatus = (
+    id: string,
+    status: 'Pending' | 'Disposed',
+    disposalRemarks?: string
+  ) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
+      return;
+    }
+    const todayStr = new Date().toISOString().split('T')[0];
+    const target = landDisputes.find((l) => l.id === id);
+    if (target) {
+      const updated: LandDispute = {
+        ...target,
+        status,
+        disposalDate: status === 'Disposed' ? todayStr : undefined,
+        disposalRemarks: status === 'Disposed' ? disposalRemarks || target.disposalRemarks : undefined,
+      };
+      setLandDisputes((prev) => prev.map((l) => (l.id === id ? updated : l)));
+      saveLandDisputeToSupabase(updated);
+    }
+  };
+
+  // Handlers for UD Cases
+  const handleAddUDCase = (newUDData: Omit<UDCase, 'id'>) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
+      return;
+    }
+    const newUD: UDCase = {
+      ...newUDData,
+      id: `ud-${Date.now()}`,
+    };
+    setUdCases((prev) => [newUD, ...prev]);
+    saveUDCaseToSupabase(newUD);
+  };
+
+  const handleUpdateUDCase = (updatedUD: UDCase) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
+      return;
+    }
+    setUdCases((prev) => prev.map((u) => (u.id === updatedUD.id ? updatedUD : u)));
+    saveUDCaseToSupabase(updatedUD);
+  };
+
+  // Handlers for IOs
+  const handleAddIO = (newIOData: Omit<InvestigatingOfficer, 'id'>) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
+      return;
+    }
+    const newIO: InvestigatingOfficer = {
+      ...newIOData,
+      id: `io-${Date.now()}`,
+    };
+    setIos((prev) => [...prev, newIO]);
+    saveIOToSupabase(newIO);
+  };
+
+  // Handlers for Daily Crime Reports
+  const handleAddDailyReport = (newReportData: Omit<DailyCrimeReport, 'id'>) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
+      return;
+    }
+    const newReport: DailyCrimeReport = {
+      ...newReportData,
+      id: `dcr-${Date.now()}`,
+    };
+    setDailyReports((prev) => [newReport, ...prev]);
+    saveDailyReportToSupabase(newReport);
+  };
+
+  // Calculate filtered FIR cases
+  const visibleCases = cases.filter((c) => {
+    // Role-based PS restriction
+    if (activePS && c.ps !== activePS) return false;
+
+    // Filters
+    if (filters.policeStations && filters.policeStations.length > 0 && !filters.policeStations.includes(c.ps)) {
+      return false;
+    }
+    if (filters.designations && filters.designations.length > 0 && !filters.designations.includes(c.designation)) {
+      return false;
+    }
+    if (filters.statuses && filters.statuses.length > 0 && !filters.statuses.includes(c.status)) {
+      return false;
+    }
+    if (
+      filters.deadlineCategories &&
+      filters.deadlineCategories.length > 0 &&
+      !filters.deadlineCategories.includes(c.deadlineDays)
+    ) {
+      return false;
+    }
+    if (filters.ioNames && filters.ioNames.length > 0 && !filters.ioNames.includes(c.ioName)) {
+      return false;
+    }
+
+    // CCTNS Sync Filter
+    if (filters.cctnsSyncFilter === 'CS_SYNC' && (!c.chargesheetUploadedCCTNS || c.caseDiaryUploadedCCTNS)) return false;
+    if (filters.cctnsSyncFilter === 'CD_SYNC' && (!c.caseDiaryUploadedCCTNS || c.chargesheetUploadedCCTNS)) return false;
+    if (filters.cctnsSyncFilter === 'BOTH_SYNC' && (!c.chargesheetUploadedCCTNS || !c.caseDiaryUploadedCCTNS)) return false;
+    if (filters.cctnsSyncFilter === 'NONE_SYNC' && (c.chargesheetUploadedCCTNS || c.caseDiaryUploadedCCTNS)) return false;
+
+    if (filters.chargesheetCCTNS === 'YES' && !c.chargesheetUploadedCCTNS) return false;
+    if (filters.chargesheetCCTNS === 'NO' && c.chargesheetUploadedCCTNS) return false;
+
+    if (filters.caseDiaryCCTNS === 'YES' && !c.caseDiaryUploadedCCTNS) return false;
+    if (filters.caseDiaryCCTNS === 'NO' && c.caseDiaryUploadedCCTNS) return false;
+
+    // Deadline Status filter
+    const deadlineInfo = getDeadlineInfo(c);
+    if (filters.deadlineStatus !== 'ALL' && deadlineInfo.code !== filters.deadlineStatus) return false;
 
     // Search Query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const match = io.name.toLowerCase().includes(q) || io.rank.toLowerCase().includes(q) || (io.phone && io.phone.includes(q));
+    if (filters.searchQuery && filters.searchQuery.trim()) {
+      const q = filters.searchQuery.toLowerCase();
+      const match =
+        c.firNumber.toLowerCase().includes(q) ||
+        c.sections.toLowerCase().includes(q) ||
+        c.complainantName.toLowerCase().includes(q) ||
+        c.placeOfOccurrence.toLowerCase().includes(q) ||
+        c.ioName.toLowerCase().includes(q);
       if (!match) return false;
     }
 
-    // Case Load Filtering
-    if (caseLoadFilter !== 'ALL') {
-      const ioCases = cases.filter((c) => c.ioName.includes(io.name) || io.name.includes(c.ioName));
-      if (caseLoadFilter === 'HAS_SR') {
-        const hasSR = ioCases.some((c) => c.designation === 'SR' && c.status === 'Under Investigation');
-        if (!hasSR) return false;
-      }
-      if (caseLoadFilter === 'HAS_OVERDUE') {
-        const hasOverdue = ioCases.some((c) => getDeadlineInfo(c).code === 'OVERDUE');
-        if (!hasOverdue) return false;
-      }
-    }
+    // Date range
+    if (filters.startDate && c.firDate < filters.startDate) return false;
+    if (filters.endDate && c.firDate > filters.endDate) return false;
 
     return true;
   });
 
-  const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    onAddIO({
-      name: name.trim(),
-      rank,
-      ps,
-      phone: phone.trim() || undefined,
-      status,
-    });
-    setName('');
-    setPhone('');
-    setIsModalOpen(false);
+  const handleApplyFilter = (newFilters: Partial<FilterOptions>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
-  const handleEditSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingIO) return;
-    onUpdateIOStatus(editingIO.id, editingIO.status || 'Active', editingIO.phone);
-    setEditingIO(null);
-  };
+  // Global overdue count
+  const overdueCount = cases.filter((c) => {
+    if (activePS && c.ps !== activePS) return false;
+    return getDeadlineInfo(c).code === 'OVERDUE';
+  }).length;
 
-  const resetFilters = () => {
-    setSearchQuery('');
-    setPsFilter('ALL');
-    setStatusFilter('ALL');
-    setRankFilter('ALL');
-    setCaseLoadFilter('ALL');
-  };
+  const pendingSRCount = cases.filter((c) => {
+    if (activePS && c.ps !== activePS) return false;
+    return c.designation === 'SR' && c.status === 'Under Investigation';
+  }).length;
 
-  const handleExportExcel = () => {
-    const headers = ['Officer Name', 'Rank', 'Police Station / Posting', 'Phone', 'Status', 'Active Pending Cases', 'Total Handled Cases'];
-    const rows = filteredIOs.map((io) => {
-      const ioCases = cases.filter((c) => c.ioName.includes(io.name) || io.name.includes(c.ioName));
-      const pendingCount = ioCases.filter((c) => c.status === 'Under Investigation').length;
-      return [io.name, io.rank, io.ps, io.phone || 'N/A', io.status || 'Active', pendingCount, ioCases.length];
-    });
-    exportToExcel('IO_Allocation_and_Transfer_Roster', headers, rows);
-  };
+  const pendingLandDisputesCount = landDisputes.filter((l) => {
+    if (activePS && l.ps !== activePS) return false;
+    return l.status === 'Pending';
+  }).length;
+
+  if (!currentUserAccount) {
+    return (
+      <LoginModal
+        isOpen={true}
+        accounts={userAccounts}
+        onLoginSuccess={handleLoginSuccess}
+      />
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="bg-slate-900 text-white rounded-xl p-5 border border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-slate-800 text-amber-400 rounded-lg border border-slate-700 font-bold">
-            <UserCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white">
-              Investigating Officers (IO) Roster & Transfer Tracker {activePS ? `— ${activePS} PS` : ''}
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Manage active and transferred IOs, track past investigation records, and oversee case load distribution.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          <button
-            onClick={handleExportExcel}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Export Roster</span>
-          </button>
-          {!isReadOnly && (
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3.5 py-2 rounded-lg transition flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Add New IO</span>
-            </button>
-          )}
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased">
+      
+      {/* Primary Header */}
+      <Header
+        currentRole={currentRole}
+        onRoleChange={handleRoleChange}
+        currentUserAccount={currentUserAccount}
+        onOpenUserManagement={() => setIsUserManagementOpen(true)}
+        onLogout={handleLogout}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onOpenNewFIR={() => setIsNewFIRModalOpen(true)}
+        onOpenNewLandDispute={() => setIsNewLandDisputeModalOpen(true)}
+        overdueCount={overdueCount}
+        pendingSRCount={pendingSRCount}
+        pendingLandDisputesCount={pendingLandDisputesCount}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        isReadOnly={isReadOnly}
+      />
 
-      {/* Advanced Filter Bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
-          {/* Search */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search IO Name, Rank, Phone..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-medium text-slate-900 dark:text-white"
+      {/* Main Body Layout */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        
+        {/* Tab 1: Dashboard Stats */}
+        {activeTab === 'dashboard' && (
+          <DashboardStats
+            cases={cases}
+            landDisputes={landDisputes}
+            currentRole={currentRole}
+            onSelectFilterPS={(ps) => {
+              setFilters((prev) => ({ ...prev, policeStations: ps === 'ALL' ? [] : [ps] }));
+              setActiveTab('firs');
+            }}
+            onTabChange={setActiveTab}
+            onApplyFilter={handleApplyFilter}
+          />
+        )}
+
+        {/* Tab 2: FIR & Case Register */}
+        {activeTab === 'firs' && (
+          <div className="space-y-4">
+            <FIRFilterBar
+              filters={filters}
+              onFilterChange={setFilters}
+              onResetFilters={() => setFilters(DEFAULT_FILTERS)}
+              investigatingOfficers={ios}
+              hidePSFilter={currentRole !== 'SDPO'}
+              activePS={activePS}
+              filteredCases={visibleCases}
+            />
+
+            <FIRTable
+              cases={visibleCases}
+              currentRole={currentRole}
+              onViewCase={(c) => setViewingCase(c)}
+              onEditCase={(c) => setEditingCase(c)}
+              onDesignateCase={handleDesignateCase}
+              isReadOnly={isReadOnly}
             />
           </div>
+        )}
 
-          {/* PS Filter */}
-          {!activePS && (
-            <div>
-              <select
-                value={psFilter}
-                onChange={(e) => setPsFilter(e.target.value as any)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 font-bold text-slate-900 dark:text-white"
-              >
-                <option value="ALL">All Stations / Units</option>
-                <option value="Subdivision HQ">Subdivision HQ</option>
-                <option value="Tarapur">Tarapur PS</option>
-                <option value="Asarganj">Asarganj PS</option>
-                <option value="Sangrampur">Sangrampur PS</option>
-                <option value="Harpur">Harpur PS</option>
-              </select>
-            </div>
-          )}
+        {/* Tab 3: 60/90 Days Deadline Monitor */}
+        {activeTab === 'deadlines' && (
+          <DeadlineMonitor
+            cases={activePS ? cases.filter((c) => c.ps === activePS) : cases}
+            onViewCase={(c) => setViewingCase(c)}
+            onEditCase={(c) => setEditingCase(c)}
+            isReadOnly={isReadOnly}
+          />
+        )}
 
-          {/* Active / Transferred Status Filter */}
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 font-bold text-slate-900 dark:text-white"
-            >
-              <option value="ALL">All Statuses (Active & Transferred)</option>
-              <option value="Active">Active Posted Officers</option>
-              <option value="Transferred">Transferred Officers</option>
-            </select>
-          </div>
+        {/* Tab 4: Land Dispute Register */}
+        {activeTab === 'land_disputes' && (
+          <LandDisputeSection
+            landDisputes={landDisputes}
+            currentRole={currentRole}
+            onAddLandDispute={handleAddLandDispute}
+            onUpdateLandDisputeStatus={handleUpdateLandDisputeStatus}
+            isNewModalOpen={isNewLandDisputeModalOpen}
+            setIsNewModalOpen={setIsNewLandDisputeModalOpen}
+            isReadOnly={isReadOnly}
+          />
+        )}
 
-          {/* Rank Filter */}
-          <div>
-            <select
-              value={rankFilter}
-              onChange={(e) => setRankFilter(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 font-bold text-slate-900 dark:text-white"
-            >
-              <option value="ALL">All Ranks</option>
-              <option value="SDPO">SDPO</option>
-              <option value="Circle Inspector">Circle Inspector (CI)</option>
-              <option value="Sub-Inspector (SI)">Sub-Inspector (SI)</option>
-              <option value="Asst. Sub-Inspector (ASI)">Asst. Sub-Inspector (ASI)</option>
-            </select>
-          </div>
+        {/* Tab 5: UD & NON-SR Desk */}
+        {activeTab === 'ud_cases' && (
+          <UDCaseSection
+            udCases={udCases}
+            nonSrCases={cases.filter((c) => c.designation === 'NON_SR')}
+            currentRole={currentRole}
+            onAddUDCase={handleAddUDCase}
+            onUpdateUDCase={handleUpdateUDCase}
+            onViewFIR={(c) => setViewingCase(c)}
+            onEditFIR={(c) => setEditingCase(c)}
+            isReadOnly={isReadOnly}
+          />
+        )}
 
-          {/* Case Load Filter */}
-          <div>
-            <select
-              value={caseLoadFilter}
-              onChange={(e) => setCaseLoadFilter(e.target.value as any)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 font-bold text-slate-900 dark:text-white"
-            >
-              <option value="ALL">All Case Loads</option>
-              <option value="HAS_SR">Handling Special Reports (SR)</option>
-             <option value="HAS_OVERDUE">Has Overdue (&gt;60/90d) Cases</option>
-            </select>
-          </div>
+        {/* Supervision Status Tab (Super User / SDPO Only) */}
+        {activeTab === 'supervision' && currentRole === 'SDPO' && (
+          <SupervisionStatusSection
+            cases={cases}
+            onEditCase={(c) => setEditingCase(c)}
+            onViewCase={(c) => setViewingCase(c)}
+            currentRole={currentRole}
+            isReadOnly={isReadOnly}
+          />
+        )}
+
+        {/* Tab 6: IO List & Allocation */}
+        {activeTab === 'ios' && (
+          <IOManagement
+            ios={ios}
+            cases={cases}
+            onAddIO={handleAddIO}
+            currentRole={currentRole}
+            onSelectIOCasesFilter={(ioName) => {
+              setFilters((prev) => ({ ...prev, ioNames: [ioName] }));
+              setActiveTab('firs');
+            }}
+            isReadOnly={isReadOnly}
+          />
+        )}
+
+        {/* Tab 7: Daily PS Crime Reports */}
+        {activeTab === 'daily_reports' && (
+          <DailyCrimeReportSection
+            reports={dailyReports}
+            currentRole={currentRole}
+            onAddReport={handleAddDailyReport}
+            isReadOnly={isReadOnly}
+          />
+        )}
+
+      </main>
+
+      {/* Modals */}
+      <NewFIREntryModal
+        isOpen={isNewFIRModalOpen}
+        onClose={() => setIsNewFIRModalOpen(false)}
+        onSubmit={handleCreateFIR}
+        currentRole={currentRole}
+        investigatingOfficers={ios}
+      />
+
+      <EditFIRModal
+        caseItem={editingCase}
+        isOpen={Boolean(editingCase)}
+        onClose={() => setEditingCase(null)}
+        onUpdate={handleUpdateFIR}
+        currentRole={currentRole}
+        investigatingOfficers={ios}
+        isSupervisionMode={activeTab === 'supervision'}
+        isReadOnly={isReadOnly}
+      />
+
+      <ViewCaseModal
+        caseItem={viewingCase}
+        isOpen={Boolean(viewingCase)}
+        onClose={() => setViewingCase(null)}
+        onEdit={(c) => setEditingCase(c)}
+        isReadOnly={isReadOnly}
+      />
+
+      <UserManagementModal
+        isOpen={isUserManagementOpen}
+        onClose={() => setIsUserManagementOpen(false)}
+        accounts={userAccounts}
+        currentUserAccount={currentUserAccount}
+        onUpdateAccount={handleUpdateUserAccount}
+        onAddAccount={handleAddUserAccount}
+        onDeleteAccount={handleDeleteUserAccount}
+        onResetToDefaults={handleResetUserAccountsToDefaults}
+      />
+
+      <LoginModal
+        isOpen={!currentUserAccount}
+        accounts={userAccounts}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* Footer */}
+      <footer className="bg-slate-900 text-slate-400 text-xs py-4 border-t border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 text-center space-y-1">
+          <p className="font-semibold text-slate-300">
+            Official Crime Supervision & CCTNS Progress Portal — SDPO Tarapur Subdivision (Bihar Police)
+          </p>
+          <p className="text-slate-500 text-[11px]">
+            Tarapur PS • Asarganj PS • Sangrampur PS • Harpur PS • Munger Police District
+          </p>
         </div>
+      </footer>
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-slate-500">
-          <span>Showing <strong>{filteredIOs.length}</strong> officers</span>
-          <button onClick={resetFilters} className="text-blue-600 hover:underline flex items-center gap-1 font-bold">
-            <RotateCcw className="w-3 h-3" /> Reset Filters
-          </button>
-        </div>
-      </div>
-
-      {/* IO Cards Roster */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredIOs.map((io) => {
-          const ioCases = cases.filter((c) => c.ioName.includes(io.name) || io.name.includes(c.ioName));
-          const pendingIoCases = ioCases.filter((c) => c.status === 'Under Investigation');
-          const isTransferred = io.status === 'Transferred';
-
-          return (
-            <div
-              key={io.id}
-              className={`bg-white dark:bg-slate-900 rounded-xl p-4 border shadow-sm transition group space-y-3 relative ${
-                isTransferred
-                  ? 'border-slate-300 dark:border-slate-800 opacity-80'
-                  : 'border-slate-200 dark:border-slate-800 hover:border-amber-500/80'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className={`p-2 rounded font-bold border ${isTransferred ? 'bg-slate-200 dark:bg-slate-800 text-slate-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5">
-                      <span>{io.name}</span>
-                    </h3>
-                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">{io.rank}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-1">
-                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[10px] uppercase px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                    {io.ps}
-                  </span>
-                  <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase ${
-                    isTransferred ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                  }`}>
-                    {io.status || 'Active'}
-                  </span>
-                </div>
-              </div>
-
-              {io.phone && (
-                <div className="text-xs text-slate-500 flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{io.phone}</span>
-                </div>
-              )}
-
-              {/* Metrics */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-slate-400 font-bold text-[10px] uppercase block">Active Pending</span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400 text-sm">{pendingIoCases.length} Cases</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-slate-400 font-bold text-[10px] uppercase block">Total Handled</span>
-                  <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{ioCases.length} Cases</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 pt-1">
-                <button
-                  onClick={() => setSelectedIO(io)}
-                  className="flex-1 py-1.5 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-600 hover:text-white rounded transition text-center"
-                >
-                  View Case Records
-                </button>
-                {!isReadOnly && (
-                  <button
-                    onClick={() => setEditingIO(io)}
-                    className="p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded border border-slate-200 dark:border-slate-700"
-                    title="Edit Status / Transfer IO"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Edit Status / Transfer Modal */}
-      {editingIO && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 text-xs">
-            <h3 className="font-bold text-base text-slate-900 dark:text-white">Edit Officer Posting & Status</h3>
-            <form onSubmit={handleEditSave} className="space-y-3">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Officer Name</label>
-                <input type="text" value={editingIO.name} disabled className="w-full bg-slate-100 dark:bg-slate-800 border p-2 rounded font-bold" />
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Posting Status</label>
-                <select
-                  value={editingIO.status || 'Active'}
-                  onChange={(e) => setEditingIO({ ...editingIO, status: e.target.value as IOStatus })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-bold"
-                >
-                  <option value="Active">Active Posted Officer</option>
-                  <option value="Transferred">Transferred from Police Station</option>
-                </select>
-              </div>
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Contact Phone</label>
-                <input
-                  type="text"
-                  value={editingIO.phone || ''}
-                  onChange={(e) => setEditingIO({ ...editingIO, phone: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 font-medium"
-                />
-              </div>
-              <div className="pt-2 flex justify-end gap-2">
-                <button type="button" onClick={() => setEditingIO(null)} className="px-4 py-2 font-semibold text-slate-600">Cancel</button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 text-white font-bold rounded-xl shadow hover:bg-blue-700">Save Changes</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
-};
+}
