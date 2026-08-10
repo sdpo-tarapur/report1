@@ -10,7 +10,7 @@ import {
   FilterOptions,
   CaseDesignation,
   PoliceStationName,
-} from './types';
+} from '../types';
 import {
   INITIAL_USER_ACCOUNTS,
   INITIAL_FIRS,
@@ -19,7 +19,7 @@ import {
   INITIAL_IOS,
   INITIAL_CRIME_REPORTS,
 } from '../data/mockData';
-import { getDeadlineInfo, getPSFromRole } from './utils/helpers';
+import { getDeadlineInfo, getPSFromRole } from '../utils/helpers';
 import { Header } from './components/Header';
 import { DashboardStats } from './components/DashboardStats';
 import { FIRFilterBar } from './components/FIRFilterBar';
