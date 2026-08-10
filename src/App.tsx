@@ -9,7 +9,6 @@ import {
   DailyCrimeReport,
   FilterOptions,
   CaseDesignation,
-  PoliceStationName,
   IOStatus,
 } from './types';
 import {
@@ -72,8 +71,12 @@ const DEFAULT_FILTERS: FilterOptions = {
 export default function App() {
   // Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const saved = localStorage.getItem('sdpo_theme');
-    return (saved as 'light' | 'dark') || 'light';
+    try {
+      const saved = localStorage.getItem('sdpo_theme');
+      return (saved as 'light' | 'dark') || 'light';
+    } catch {
+      return 'light';
+    }
   });
 
   useEffect(() => {
@@ -103,17 +106,15 @@ export default function App() {
   const [currentUserAccount, setCurrentUserAccount] = useState<UserAccount | null>(() => {
     try {
       const saved = localStorage.getItem('sdpo_current_user_account');
-      if (saved) {
-        return JSON.parse(saved);
-      }
+      return saved ? JSON.parse(saved) : null;
     } catch {
-      // fallback
+      return null;
     }
-    return null;
   });
 
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
 
+  // Application Data States
   const [cases, setCases] = useState<FIRCase[]>(() => {
     try {
       const saved = localStorage.getItem('sdpo_firs');
@@ -123,7 +124,6 @@ export default function App() {
     }
   });
 
-  // Persistent State
   const [currentRole, setCurrentRole] = useState<UserRole>(() => {
     if (currentUserAccount) return currentUserAccount.role;
     try {
@@ -180,7 +180,7 @@ export default function App() {
   const [editingCase, setEditingCase] = useState<FIRCase | null>(null);
   const [viewingCase, setViewingCase] = useState<FIRCase | null>(null);
 
-  // Save to LocalStorage
+  // LocalStorage Persistence Sync
   useEffect(() => {
     localStorage.setItem('sdpo_user_accounts', JSON.stringify(userAccounts));
   }, [userAccounts]);
@@ -322,7 +322,7 @@ export default function App() {
   const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
     if (isReadOnly) return;
     if (currentRole !== 'SDPO') {
-      alert('Only SDPO has authority to classify cases.');
+      alert('Only SDPO has authority to classify cases as SR or NON-SR.');
       return;
     }
     const todayStr = new Date().toISOString().split('T')[0];
@@ -391,16 +391,19 @@ export default function App() {
 
   // Handlers for IOs
   const handleAddIO = (newIOData: Omit<InvestigatingOfficer, 'id'>) => {
-    if (isReadOnly) return;
+    if (isReadOnly) {
+      alert('Permission Denied: Read-Only access.');
+      return;
+    }
     const newIO: InvestigatingOfficer = {
       ...newIOData,
       id: `io-${Date.now()}`,
+      status: newIOData.status || 'Active',
     };
     setIos((prev) => [...prev, newIO]);
     saveIOToSupabase(newIO);
   };
 
-  // ✅ ADDED: Handler to update IO Status (Active/Transferred) and Sync to Supabase
   const handleUpdateIOStatus = (ioId: string, status: IOStatus, phone?: string) => {
     if (isReadOnly) return;
     setIos((prev) =>
@@ -426,7 +429,7 @@ export default function App() {
     saveDailyReportToSupabase(newReport);
   };
 
-  // Filtered FIR cases logic
+  // Filtered FIR cases calculation
   const visibleCases = cases.filter((c) => {
     if (activePS && c.ps !== activePS) return false;
 
@@ -512,6 +515,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased">
+      {/* Primary Header */}
       <Header
         currentRole={currentRole}
         onRoleChange={handleRoleChange}
@@ -530,7 +534,9 @@ export default function App() {
         isReadOnly={isReadOnly}
       />
 
+      {/* Main Body Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Tab 1: Dashboard Stats */}
         {activeTab === 'dashboard' && (
           <DashboardStats
             cases={cases}
@@ -545,6 +551,7 @@ export default function App() {
           />
         )}
 
+        {/* Tab 2: FIR & Case Register */}
         {activeTab === 'firs' && (
           <div className="space-y-4">
             <FIRFilterBar
@@ -568,6 +575,7 @@ export default function App() {
           </div>
         )}
 
+        {/* Tab 3: 60/90 Days Deadline Monitor */}
         {activeTab === 'deadlines' && (
           <DeadlineMonitor
             cases={activePS ? cases.filter((c) => c.ps === activePS) : cases}
@@ -577,6 +585,7 @@ export default function App() {
           />
         )}
 
+        {/* Tab 4: Land Dispute Register */}
         {activeTab === 'land_disputes' && (
           <LandDisputeSection
             landDisputes={landDisputes}
@@ -589,6 +598,7 @@ export default function App() {
           />
         )}
 
+        {/* Tab 5: UD & NON-SR Desk */}
         {activeTab === 'ud_cases' && (
           <UDCaseSection
             udCases={udCases}
@@ -602,6 +612,7 @@ export default function App() {
           />
         )}
 
+        {/* Supervision Status Tab (Super User / SDPO Only) */}
         {activeTab === 'supervision' && currentRole === 'SDPO' && (
           <SupervisionStatusSection
             cases={cases}
@@ -612,7 +623,7 @@ export default function App() {
           />
         )}
 
-        {/* ✅ FIX: Passed onUpdateIOStatus prop to IOManagement */}
+        {/* Tab 6: IO List & Allocation */}
         {activeTab === 'ios' && (
           <IOManagement
             ios={ios}
@@ -628,6 +639,7 @@ export default function App() {
           />
         )}
 
+        {/* Tab 7: Daily PS Crime Reports */}
         {activeTab === 'daily_reports' && (
           <DailyCrimeReportSection
             reports={dailyReports}
@@ -677,6 +689,13 @@ export default function App() {
         onResetToDefaults={handleResetUserAccountsToDefaults}
       />
 
+      <LoginModal
+        isOpen={!currentUserAccount}
+        accounts={userAccounts}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 text-xs py-4 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-4 text-center space-y-1">
           <p className="font-semibold text-slate-300">
