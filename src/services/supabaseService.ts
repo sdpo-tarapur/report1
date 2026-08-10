@@ -202,6 +202,8 @@ export async function saveUDCaseToSupabase(udCase: UDCase): Promise<boolean> {
 }
 
 // --- INVESTIGATING OFFICERS (IOs) ---
+// src/services/supabaseService.ts
+
 export async function fetchIOsFromSupabase(): Promise<InvestigatingOfficer[] | null> {
   if (!isSupabaseConfigured() || !supabase) return null;
   try {
@@ -210,24 +212,42 @@ export async function fetchIOsFromSupabase(): Promise<InvestigatingOfficer[] | n
       console.error('Error fetching IOs from Supabase:', error);
       return null;
     }
-    return data as InvestigatingOfficer[];
+    if (!data) return [];
+
+    return data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      rank: row.rank,
+      ps: row.ps,
+      phone: row.phone || undefined,
+      status: row.status || 'Active',
+    }));
   } catch (err) {
-    console.error('Supabase exception:', err);
+    console.error('Exception fetching IOs:', err);
     return null;
   }
 }
 
 export async function saveIOToSupabase(io: InvestigatingOfficer): Promise<boolean> {
-  if (!isSupabaseConfigured() || !supabase) return false;
+  if (!isSupabaseConfigured() || !supabase || !io) return false;
   try {
-    const { error } = await supabase.from('investigating_officers').upsert([io], { onConflict: 'id' });
+    const payload = {
+      id: io.id,
+      name: io.name,
+      rank: io.rank,
+      ps: io.ps,
+      phone: io.phone || null,
+      status: io.status || 'Active',
+    };
+
+    const { error } = await supabase.from('investigating_officers').upsert([payload], { onConflict: 'id' });
     if (error) {
       console.error('Error saving IO to Supabase:', error);
       return false;
     }
     return true;
   } catch (err) {
-    console.error('Supabase exception:', err);
+    console.error('Exception saving IO:', err);
     return false;
   }
 }
