@@ -11,98 +11,94 @@ export async function askGeminiAssistant(
     userRole: string;
   }
 ): Promise<string> {
-  // Read API Key directly from Vite environment
   const apiKey = (import.meta.env.VITE_GEMINI_API_KEY || '').trim();
 
   if (!apiKey) {
     return '⚠️ Gemini API Key is missing. Please set `VITE_GEMINI_API_KEY` in your `.env` file or GitHub Secrets.';
   }
 
-  // Build structured prompt with live database context
-  const promptText = `
-YOU ARE THE OFFICIAL AI ASSISTANT FOR SDPO TARAPUR SUBDIVISION PORTAL (BIHAR POLICE).
-Answer queries accurately using ONLY the live dataset provided below.
-
---- LIVE DATABASE CONTEXT ---
-1. FIR CASES (${contextData.cases.length} records):
-${JSON.stringify(
-  contextData.cases.map((c) => ({
-    firNumber: c.firNumber,
+  // 1. Compact dataset mapping to keep token counts low and stay within free-tier limits
+  const compactCases = contextData.cases.map((c) => ({
+    fir: c.firNumber,
     ps: c.ps,
-    firDate: c.firDate,
-    sections: c.sections,
+    date: c.firDate,
+    sec: c.sections,
     complainant: c.complainantName,
-    ioName: c.ioName,
-    designation: c.designation,
+    io: c.ioName,
+    type: c.designation,
     status: c.status,
-    deadlineDays: c.deadlineDays,
-    chargesheetUploadedCCTNS: c.chargesheetUploadedCCTNS,
-    caseDiaryUploadedCCTNS: c.caseDiaryUploadedCCTNS,
-    sdpoSupervisionNote: c.sdpoSupervisionNote || 'None',
-  })),
-  null,
-  2
-)}
+    limitDays: c.deadlineDays,
+    csSync: c.chargesheetUploadedCCTNS,
+    cdSync: c.caseDiaryUploadedCCTNS,
+    note: c.sdpoSupervisionNote || 'None',
+  }));
 
-2. LAND DISPUTES (${contextData.landDisputes.length} records):
-${JSON.stringify(contextData.landDisputes, null, 2)}
+  const compactIOs = contextData.ios.map((io) => ({
+    name: io.name,
+    rank: io.rank,
+    ps: io.ps,
+    status: io.status || 'Active',
+    phone: io.phone || 'N/A',
+  }));
 
-3. UNNATURAL DEATH (UD) CASES (${contextData.udCases.length} records):
-${JSON.stringify(contextData.udCases, null, 2)}
+  const compactLand = contextData.landDisputes.map((l) => ({
+    ps: l.ps,
+    firstParty: l.firstParty,
+    secondParty: l.secondParty,
+    status: l.status,
+  }));
 
-4. INVESTIGATING OFFICERS (${contextData.ios.length} records):
-${JSON.stringify(contextData.ios, null, 2)}
-----------------------------
+  const compactUD = contextData.udCases.map((u) => ({
+    udNo: u.udCaseNumber,
+    ps: u.ps,
+    deceased: u.deceasedName,
+    status: u.status,
+  }));
+
+  const promptText = `
+You are the AI Assistant for the Sub-Divisional Police Office (SDPO) Tarapur Subdivision (Bihar Police).
+Answer accurately based ONLY on this live dataset:
+
+FIR CASES (${compactCases.length}): ${JSON.stringify(compactCases)}
+IO ROSTER (${compactIOs.length}): ${JSON.stringify(compactIOs)}
+LAND DISPUTES (${compactLand.length}): ${JSON.stringify(compactLand)}
+UD CASES (${compactUD.length}): ${JSON.stringify(compactUD)}
 
 USER ROLE: ${contextData.userRole}
 USER QUERY: "${userQuery}"
 
 INSTRUCTIONS:
-- Search through the FIR cases, Land Disputes, UD cases, and IO roster above.
-- If asked about murder cases, filter by sections (IPC 302 / BNS 103).
-- Highlight pending supervision notes or overdue deadlines (>60/90 days).
-- Respond in clear, professional Markdown format with bullet points and bold headings.
+- Keep responses factual, structured, and formatted with Markdown bold headings and bullet points.
+- If asked about murder cases, search sections for IPC 302 or BNS 103.
+- Highlight pending supervision notes or overdue deadlines (>60/90 days) if applicable.
 `;
 
-  // Active Gemini models supported on Google AI Studio
-  const candidateModels = [
-    'gemini-2.0-flash',
-    'gemini-1.5-flash-latest',
-    'gemini-2.0-flash-lite',
-  ];
+  // Standard production model endpoint
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-  let lastErrorMessage = '';
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+      }),
+    });
 
-  for (const modelName of candidateModels) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    const data = await response.json();
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: promptText }],
-            },
-          ],
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && !data.error) {
-        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (reply) return reply;
-      } else {
-        lastErrorMessage = data.error?.message || `HTTP ${response.status}`;
+    if (!response.ok || data.error) {
+      if (data.error?.code === 429 || data.error?.status === 'RESOURCE_EXHAUSTED') {
+        return '⏳ Free tier rate limit reached. Please wait ~30 seconds before asking another question.';
       }
-    } catch (err: any) {
-      lastErrorMessage = err.message || 'Network fetch error';
+      return `❌ Gemini API Error (${data.error?.code || response.status}): ${data.error?.message}`;
     }
-  }
 
-  return `❌ Gemini API Error: ${lastErrorMessage}. Please verify your API Key in Google AI Studio.`;
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return reply || 'No response generated.';
+  } catch (err: any) {
+    return `❌ Network error connecting to Gemini API: ${err.message || 'Check network connection.'}`;
+  }
 }
