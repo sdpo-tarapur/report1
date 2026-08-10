@@ -45,16 +45,12 @@ import {
   deleteFIRCaseFromSupabase,
   fetchLandDisputesFromSupabase,
   saveLandDisputeToSupabase,
-  deleteLandDisputeFromSupabase,
   fetchUDCasesFromSupabase,
   saveUDCaseToSupabase,
-  deleteUDCaseFromSupabase,
   fetchIOsFromSupabase,
   saveIOToSupabase,
-  deleteIOFromSupabase,
   fetchDailyReportsFromSupabase,
   saveDailyReportToSupabase,
-  deleteDailyReportFromSupabase,
 } from './services/supabaseService';
 
 const DEFAULT_FILTERS: FilterOptions = {
@@ -320,120 +316,28 @@ export default function App() {
   const isReadOnly = currentUserAccount?.permissionLevel === 'VIEWER';
 
   // Handlers for FIRs
-// Handlers for FIRs
-const handleCreateFIR = (newCaseData: Omit<FIRCase, 'id' | 'createdAt' | 'updatedAt'>) => {
-  if (isReadOnly) {
-    alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot create new FIR records.');
-    return;
-  }
-  const todayStr = new Date().toISOString().split('T')[0];
-  const newCase: FIRCase = {
-    ...newCaseData,
-    id: `fir-${Date.now()}`,
-    createdAt: todayStr,
-    updatedAt: todayStr,
-  };
-
-  // 1. Update React local state
-  setCases((prev) => [newCase, ...prev]);
-
-  // 2. Sync FIR record directly to Supabase!
-  saveFIRCaseToSupabase(newCase);
-};
-
-const handleUpdateFIR = (updatedCase: FIRCase) => {
-  if (isReadOnly) {
-    alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot modify case records.');
-    return;
-  }
-
-  // 1. Update React local state
-  setCases((prev) => prev.map((c) => (c.id === updatedCase.id ? updatedCase : c)));
-
-  // 2. Sync updated FIR record to Supabase!
-  saveFIRCaseToSupabase(updatedCase);
-};
-
-const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
-  if (isReadOnly) {
-    alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-    return;
-  }
-  if (currentRole !== 'SDPO') {
-    alert('Only SDPO (Super User) has authority to classify cases as SR or NON-SR.');
-    return;
-  }
-  const todayStr = new Date().toISOString().split('T')[0];
-  
-  const updatedList = cases.map((c) => {
-    if (c.id === caseId) {
-      const updated = {
-        ...c,
-        designation,
-        designationDate: todayStr,
-        updatedAt: todayStr,
-      };
-      // Sync SR/NON-SR classification toggle to Supabase
-      saveFIRCaseToSupabase(updated);
-      return updated;
-    }
-    return c;
-  });
-
-  setCases(updatedList);
-};
-
-  const handleDeleteFIR = (caseId: string) => {
+  const handleCreateFIR = (newCaseData: Omit<FIRCase, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot create new FIR records.');
       return;
     }
-    const targetCase = cases.find((c) => c.id === caseId);
-    if (!targetCase) return;
-
-    // Permissions check: Superuser (SDPO) can delete anything. PS can delete their cases. CI can delete NON-SR cases.
-    const isSuperUser = currentRole === 'SDPO';
-    const isOwnPS = activePS && targetCase.ps === activePS;
-    const isCI = currentRole === 'CI';
-
-    if (!isSuperUser && !isOwnPS && !isCI) {
-      alert(`Permission Denied: ${currentRole} cannot delete FIR cases belonging to ${targetCase.ps} PS.`);
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete FIR ${targetCase.firNumber} (${targetCase.ps} PS)? This action cannot be undone.`)) {
-      return;
-    }
-
-    setCases((prev) => prev.filter((c) => c.id !== caseId));
-    deleteFIRCaseFromSupabase(caseId);
-  };
-
-  const handleDeleteSupervisionNote = (caseId: string) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
-    if (currentRole !== 'SDPO') {
-      alert('Permission Denied: Police Stations cannot delete supervision directives. Only SDPO (Superuser) can delete or clear supervision directives.');
-      return;
-    }
-    const targetCase = cases.find((c) => c.id === caseId);
-    if (!targetCase) return;
-
-    if (!window.confirm(`Are you sure you want to clear/delete the SDPO Supervision directive for FIR ${targetCase.firNumber}?`)) {
-      return;
-    }
-
     const todayStr = new Date().toISOString().split('T')[0];
-    const updatedCase: FIRCase = {
-      ...targetCase,
-      sdpoSupervisionNote: undefined,
-      supervisionDate: undefined,
+    const newCase: FIRCase = {
+      ...newCaseData,
+      id: `fir-${Date.now()}`,
+      createdAt: todayStr,
       updatedAt: todayStr,
     };
+    setCases((prev) => [newCase, ...prev]);
+    saveFIRCaseToSupabase(newCase);
+  };
 
-    setCases((prev) => prev.map((c) => (c.id === caseId ? updatedCase : c)));
+  const handleUpdateFIR = (updatedCase: FIRCase) => {
+    if (isReadOnly) {
+      alert('Permission Denied: Your account has Read-Only (VIEWER) access. You cannot modify case records.');
+      return;
+    }
+    setCases((prev) => prev.map((c) => (c.id === updatedCase.id ? updatedCase : c)));
     saveFIRCaseToSupabase(updatedCase);
   };
 
@@ -499,30 +403,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
     }
   };
 
-  const handleDeleteLandDispute = (id: string) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
-    const target = landDisputes.find((l) => l.id === id);
-    if (!target) return;
-
-    const isSuperUser = currentRole === 'SDPO';
-    const isOwnPS = activePS && target.ps === activePS;
-
-    if (!isSuperUser && !isOwnPS) {
-      alert(`Permission Denied: ${currentRole} cannot delete Land Disputes belonging to ${target.ps} PS.`);
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete this Land Dispute record for ${target.victimName}?`)) {
-      return;
-    }
-
-    setLandDisputes((prev) => prev.filter((l) => l.id !== id));
-    deleteLandDisputeFromSupabase(id);
-  };
-
   // Handlers for UD Cases
   const handleAddUDCase = (newUDData: Omit<UDCase, 'id'>) => {
     if (isReadOnly) {
@@ -546,30 +426,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
     saveUDCaseToSupabase(updatedUD);
   };
 
-  const handleDeleteUDCase = (id: string) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
-    const target = udCases.find((u) => u.id === id);
-    if (!target) return;
-
-    const isSuperUser = currentRole === 'SDPO';
-    const isOwnPS = activePS && target.ps === activePS;
-
-    if (!isSuperUser && !isOwnPS) {
-      alert(`Permission Denied: ${currentRole} cannot delete UD cases belonging to ${target.ps} PS.`);
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete UD Case ${target.udCaseNo} (${target.ps} PS)?`)) {
-      return;
-    }
-
-    setUdCases((prev) => prev.filter((u) => u.id !== id));
-    deleteUDCaseFromSupabase(id);
-  };
-
   // Handlers for IOs
   const handleAddIO = (newIOData: Omit<InvestigatingOfficer, 'id'>) => {
     if (isReadOnly) {
@@ -584,31 +440,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
     saveIOToSupabase(newIO);
   };
 
-  const handleDeleteIO = (ioId: string) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
-    const targetIO = ios.find((i) => i.id === ioId);
-    if (!targetIO) return;
-
-    const isSuperUser = currentRole === 'SDPO';
-    const isOwnPS = activePS && targetIO.policeStation === activePS;
-    const isCI = currentRole === 'CI';
-
-    if (!isSuperUser && !isOwnPS && !isCI) {
-      alert(`Permission Denied: ${currentRole} cannot delete IO assigned to ${targetIO.policeStation} PS.`);
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete IO ${targetIO.name} (${targetIO.policeStation} PS)?`)) {
-      return;
-    }
-
-    setIos((prev) => prev.filter((i) => i.id !== ioId));
-    deleteIOFromSupabase(ioId);
-  };
-
   // Handlers for Daily Crime Reports
   const handleAddDailyReport = (newReportData: Omit<DailyCrimeReport, 'id'>) => {
     if (isReadOnly) {
@@ -621,30 +452,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
     };
     setDailyReports((prev) => [newReport, ...prev]);
     saveDailyReportToSupabase(newReport);
-  };
-
-  const handleDeleteDailyReport = (id: string) => {
-    if (isReadOnly) {
-      alert('Permission Denied: Your account has Read-Only (VIEWER) access.');
-      return;
-    }
-    const target = dailyReports.find((r) => r.id === id);
-    if (!target) return;
-
-    const isSuperUser = currentRole === 'SDPO';
-    const isOwnPS = activePS && target.ps === activePS;
-
-    if (!isSuperUser && !isOwnPS) {
-      alert(`Permission Denied: ${currentRole} cannot delete daily reports belonging to ${target.ps} PS.`);
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete this daily crime report entry?`)) {
-      return;
-    }
-
-    setDailyReports((prev) => prev.filter((r) => r.id !== id));
-    deleteDailyReportFromSupabase(id);
   };
 
   // Calculate filtered FIR cases
@@ -796,7 +603,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
               currentRole={currentRole}
               onViewCase={(c) => setViewingCase(c)}
               onEditCase={(c) => setEditingCase(c)}
-              onDeleteCase={handleDeleteFIR}
               onDesignateCase={handleDesignateCase}
               isReadOnly={isReadOnly}
             />
@@ -820,7 +626,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
             currentRole={currentRole}
             onAddLandDispute={handleAddLandDispute}
             onUpdateLandDisputeStatus={handleUpdateLandDisputeStatus}
-            onDeleteLandDispute={handleDeleteLandDispute}
             isNewModalOpen={isNewLandDisputeModalOpen}
             setIsNewModalOpen={setIsNewLandDisputeModalOpen}
             isReadOnly={isReadOnly}
@@ -835,7 +640,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
             currentRole={currentRole}
             onAddUDCase={handleAddUDCase}
             onUpdateUDCase={handleUpdateUDCase}
-            onDeleteUDCase={handleDeleteUDCase}
             onViewFIR={(c) => setViewingCase(c)}
             onEditFIR={(c) => setEditingCase(c)}
             isReadOnly={isReadOnly}
@@ -848,8 +652,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
             cases={cases}
             onEditCase={(c) => setEditingCase(c)}
             onViewCase={(c) => setViewingCase(c)}
-            onDeleteSupervisionNote={handleDeleteSupervisionNote}
-            onDeleteCase={handleDeleteFIR}
             currentRole={currentRole}
             isReadOnly={isReadOnly}
           />
@@ -861,7 +663,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
             ios={ios}
             cases={cases}
             onAddIO={handleAddIO}
-            onDeleteIO={handleDeleteIO}
             currentRole={currentRole}
             onSelectIOCasesFilter={(ioName) => {
               setFilters((prev) => ({ ...prev, ioNames: [ioName] }));
@@ -877,7 +678,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
             reports={dailyReports}
             currentRole={currentRole}
             onAddReport={handleAddDailyReport}
-            onDeleteReport={handleDeleteDailyReport}
             isReadOnly={isReadOnly}
           />
         )}
@@ -898,8 +698,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
         isOpen={Boolean(editingCase)}
         onClose={() => setEditingCase(null)}
         onUpdate={handleUpdateFIR}
-        onDeleteSupervisionNote={handleDeleteSupervisionNote}
-        onDeleteCase={handleDeleteFIR}
         currentRole={currentRole}
         investigatingOfficers={ios}
         isSupervisionMode={activeTab === 'supervision'}
@@ -911,7 +709,6 @@ const handleDesignateCase = (caseId: string, designation: CaseDesignation) => {
         isOpen={Boolean(viewingCase)}
         onClose={() => setViewingCase(null)}
         onEdit={(c) => setEditingCase(c)}
-        onDeleteCase={handleDeleteFIR}
         isReadOnly={isReadOnly}
       />
 
