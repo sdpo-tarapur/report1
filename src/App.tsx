@@ -53,6 +53,37 @@ import {
   saveDailyReportToSupabase,
 } from './services/supabaseService';
 
+import { AIChatbotModal } from './components/AIChatbotModal';
+import { Sparkles } from 'lucide-react';
+
+// Inside App component:
+const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+
+return (
+  <div className="...">
+    {/* Header & Main Content */}
+    
+    {/* FLOATING AI CHATBOT TRIGGER BUTTON */}
+    <button
+      onClick={() => setIsChatbotOpen(!isChatbotOpen)}
+      className="fixed bottom-5 right-5 z-40 p-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-full shadow-2xl border-2 border-white/20 flex items-center gap-2 transition-transform hover:scale-105"
+    >
+      <Sparkles className="w-5 h-5 text-amber-300" />
+      <span className="text-xs font-extrabold pr-1 hidden sm:inline">AI Police Assistant</span>
+    </button>
+
+    {/* AI CHATBOT MODAL */}
+    <AIChatbotModal
+      isOpen={isChatbotOpen}
+      onClose={() => setIsChatbotOpen(false)}
+      cases={cases}
+      landDisputes={landDisputes}
+      udCases={udCases}
+      ios={ios}
+      currentRole={currentRole}
+    />
+  </div>
+);
 const DEFAULT_FILTERS: FilterOptions = {
   searchQuery: '',
   policeStations: [],
