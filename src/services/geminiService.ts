@@ -64,8 +64,8 @@ INSTRUCTIONS:
 - Respond in clear, professional Markdown format with bullet points and bold headings.
 `;
 
-  // Direct Google AI REST Endpoint Call
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  // Updated URL using stable gemini-1.5-flash model endpoint
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   try {
     const response = await fetch(url, {
@@ -87,7 +87,7 @@ INSTRUCTIONS:
     if (!response.ok || data.error) {
       console.error('Gemini API Error details:', data.error);
       return `❌ Gemini API Error (${data.error?.code || response.status}): ${
-        data.error?.message || 'Authentication or quota issue.'
+        data.error?.message || 'Unable to fetch response.'
       }`;
     }
 
