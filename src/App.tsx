@@ -135,14 +135,6 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
-  const [cases, setCases] = useState<FIRCase[]>(() => {
-    try {
-      const saved = localStorage.getItem('sdpo_firs');
-      return saved ? JSON.parse(saved) : INITIAL_FIRS;
-    } catch {
-      return INITIAL_FIRS;
-    }
-  });
 
   const [landDisputes, setLandDisputes] = useState<LandDispute[]>(() => {
     try {
