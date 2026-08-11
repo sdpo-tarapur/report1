@@ -40,7 +40,22 @@ export async function askGroqChatbot(
     return 'Error: VITE_GROQ_API_KEY is not defined in your environment variables.';
   }
 
-  const dbContext = await getDatabaseContext();
+ const dbContext = await getDatabaseContext();
+
+  // 1. Direct System Prompt to guide the AI
+  const systemMessage: ChatMessage = {
+    role: 'system',
+    content: `You are an intelligent AI assistant built directly into this Law Enforcement Dashboard.
+
+CRITICAL INSTRUCTIONS:
+1. You have direct access to the live database records provided below in JSON format.
+2. Answer the user's questions strictly and accurately using this database data.
+3. NEVER tell the user that you are an AI without access to a database or that this is a simulation. You ARE currently reading their database context.
+
+--- LIVE SUPABASE DATABASE RECORDS ---
+${dbContext}
+-------------------------------------`
+  };
 
   const systemMessage: ChatMessage = {
     role: 'system',
