@@ -44,8 +44,17 @@ export const IOManagement: React.FC<IOManagementProps> = ({
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<IOStatus>('Active');
 
+  // Safe helper to match IO name against a case record safely
+  const isCaseAssignedToIO = (c: FIRCase, ioName: string) => {
+    if (!c || !c.ioName || !ioName) return false;
+    const caseIo = c.ioName.toLowerCase();
+    const targetIo = ioName.toLowerCase();
+    return caseIo.includes(targetIo) || targetIo.includes(caseIo);
+  };
+
   // Filter Logic
-  const filteredIOs = ios.filter((io) => {
+  const filteredIOs = (ios || []).filter((io) => {
+    if (!io) return false;
     if (activePS && io.ps !== activePS && io.ps !== 'Subdivision HQ') return false;
     if (!activePS && psFilter !== 'ALL' && io.ps !== psFilter) return false;
     if (statusFilter !== 'ALL' && (io.status || 'Active') !== statusFilter) return false;
@@ -53,12 +62,12 @@ export const IOManagement: React.FC<IOManagementProps> = ({
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const match = io.name.toLowerCase().includes(q) || io.rank.toLowerCase().includes(q) || (io.phone && io.phone.includes(q));
+      const match = (io.name || '').toLowerCase().includes(q) || (io.rank || '').toLowerCase().includes(q) || (io.phone && io.phone.includes(q));
       if (!match) return false;
     }
 
     if (caseLoadFilter !== 'ALL') {
-      const ioCases = cases.filter((c) => c.ioName.includes(io.name) || io.name.includes(c.ioName));
+      const ioCases = (cases || []).filter((c) => isCaseAssignedToIO(c, io.name));
       if (caseLoadFilter === 'HAS_SR') {
         const hasSR = ioCases.some((c) => c.designation === 'SR' && c.status === 'Under Investigation');
         if (!hasSR) return false;
@@ -105,7 +114,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
   const handleExportExcel = () => {
     const headers = ['Officer Name', 'Rank', 'Police Station / Posting', 'Phone', 'Status', 'Active Pending Cases', 'Total Handled Cases'];
     const rows = filteredIOs.map((io) => {
-      const ioCases = cases.filter((c) => c.ioName.includes(io.name) || io.name.includes(c.ioName));
+      const ioCases = (cases || []).filter((c) => isCaseAssignedToIO(c, io.name));
       const pendingCount = ioCases.filter((c) => c.status === 'Under Investigation').length;
       return [io.name, io.rank, io.ps, io.phone || 'N/A', io.status || 'Active', pendingCount, ioCases.length];
     });
@@ -132,7 +141,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <button
             onClick={handleExportExcel}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm"
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Export Roster</span>
@@ -149,9 +158,10 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         </div>
       </div>
 
-      {/* Filter Controls */}
+      {/* Advanced Filter Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+          {/* Search */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
             <input
@@ -163,6 +173,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
             />
           </div>
 
+          {/* PS Filter */}
           {!activePS && (
             <div>
               <select
@@ -180,6 +191,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
             </div>
           )}
 
+          {/* Active / Transferred Status Filter */}
           <div>
             <select
               value={statusFilter}
@@ -192,6 +204,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
             </select>
           </div>
 
+          {/* Rank Filter */}
           <div>
             <select
               value={rankFilter}
@@ -206,6 +219,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
             </select>
           </div>
 
+          {/* Case Load Filter */}
           <div>
             <select
               value={caseLoadFilter}
@@ -227,10 +241,10 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         </div>
       </div>
 
-      {/* IO Roster Grid */}
+      {/* IO Cards Roster */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredIOs.map((io) => {
-          const ioCases = cases.filter((c) => c.ioName.includes(io.name) || io.name.includes(c.ioName));
+          const ioCases = (cases || []).filter((c) => isCaseAssignedToIO(c, io.name));
           const pendingIoCases = ioCases.filter((c) => c.status === 'Under Investigation');
           const isTransferred = io.status === 'Transferred';
 
@@ -275,6 +289,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
                 </div>
               )}
 
+              {/* Metrics */}
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <div>
                   <span className="text-slate-400 font-bold text-[10px] uppercase block">Active Pending</span>
@@ -308,7 +323,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         })}
       </div>
 
-      {/* ADD NEW IO MODAL */}
+      {/* Add New IO Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 text-xs">
@@ -401,7 +416,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         </div>
       )}
 
-      {/* EDIT STATUS / TRANSFER MODAL */}
+      {/* Edit Status / Transfer Modal */}
       {editingIO && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 text-xs">
@@ -440,7 +455,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         </div>
       )}
 
-      {/* VIEW ASSIGNED CASES MODAL */}
+      {/* View Case Records Modal */}
       {selectedIO && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
@@ -474,7 +489,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <FolderOpen className="w-4 h-4 text-amber-400" />
-                  <span>Assigned FIR Cases ({cases.filter((c) => c.ioName.includes(selectedIO.name) || selectedIO.name.includes(c.ioName)).length})</span>
+                  <span>Assigned FIR Cases ({(cases || []).filter((c) => isCaseAssignedToIO(c, selectedIO.name)).length})</span>
                 </h4>
                 {onSelectIOCasesFilter && (
                   <button
@@ -491,7 +506,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
               </div>
 
               {(() => {
-                const ioAssignedCases = cases.filter((c) => c.ioName.includes(selectedIO.name) || selectedIO.name.includes(c.ioName));
+                const ioAssignedCases = (cases || []).filter((c) => isCaseAssignedToIO(c, selectedIO.name));
                 if (ioAssignedCases.length === 0) {
                   return (
                     <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800">
