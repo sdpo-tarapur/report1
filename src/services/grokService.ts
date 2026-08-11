@@ -1,78 +1,73 @@
-import React, { useState } from 'react';
-import { askGroqChatbot, ChatMessage } from '../services/groqService';
+import { supabase } from '../lib/supabase';
 
-export const AIChatbotModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
-  isOpen,
-  onClose,
-}) => {
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<{ sender: 'user' | 'bot'; text: string }[]>([
-    { sender: 'bot', text: 'Hello! I am your AI DB Assistant. How can I help you today?' },
-  ]);
-  const [loading, setLoading] = useState(false);
+const XAI_API_KEY = import.meta.env.VITE_XAI_API_KEY;
 
-  if (!isOpen) return null;
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+async function getDatabaseContext(): Promise<string> {
+  try {
+    const { data: firs, error } = await supabase
+      .from('firs')
+      .select('fir_number, status, crime_type, date, district')
+      .limit(10);
 
-    const userText = input;
-    setInput('');
-    setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
-    setLoading(true);
+    if (error || !firs) {
+      return 'No database records found.';
+    }
 
-    const history: ChatMessage[] = messages.map((m) => ({
-      role: m.sender === 'user' ? 'user' : 'assistant',
-      content: m.text,
-    }));
+    return JSON.stringify(firs);
+  } catch (err) {
+    return 'Database query failed.';
+  }
+}
 
-    // Calling Groq Chatbot Service
-    const botReply = await askGroqChatbot(userText, history);
+export async function askGrokChatbot(
+  userPrompt: string,
+  chatHistory: ChatMessage[] = []
+): Promise<string> {
+  if (!XAI_API_KEY) {
+    return 'Error: VITE_XAI_API_KEY is not defined in environment variables.';
+  }
 
-    setMessages((prev) => [...prev, { sender: 'bot', text: botReply }]);
-    setLoading(false);
+  const dbContext = await getDatabaseContext();
+
+  const systemMessage: ChatMessage = {
+    role: 'system',
+    content: `You are an AI assistant for a law enforcement database portal. Context: ${dbContext}`,
   };
 
-  return (
-    <div className="fixed bottom-6 right-6 z-50 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col h-[500px] overflow-hidden">
-      <div className="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
-        <h2 className="font-semibold text-sm">AI DB Assistant</h2>
-        <button onClick={onClose} className="text-gray-300 hover:text-white">✕</button>
-      </div>
+  const payload = {
+    model: 'grok-beta',
+    messages: [
+      systemMessage,
+      ...chatHistory,
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.3,
+  };
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 text-sm">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`p-3 rounded-lg max-w-[85%] ${
-              msg.sender === 'user'
-                ? 'bg-blue-600 text-white ml-auto'
-                : 'bg-white text-gray-800 border border-gray-200 mr-auto'
-            }`}
-          >
-            {msg.text}
-          </div>
-        ))}
-        {loading && <div className="text-gray-400 text-xs italic">AI is thinking...</div>}
-      </div>
+  try {
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${XAI_API_KEY.replace(/['"]/g, '').trim()}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
-      <div className="p-3 bg-white border-t border-gray-200 flex gap-2">
-        <input
-          type="text"
-          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Ask a question..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-        />
-        <button
-          onClick={handleSend}
-          disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
-        >
-          Send
-        </button>
-      </div>
-    </div>
-  );
-};
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data?.error?.message || `API Error: ${response.status}`);
+    }
+
+    return data.choices?.[0]?.message?.content || 'No response from Grok.';
+  } catch (error: any) {
+    console.error('Grok Error:', error);
+    return `Error: ${error.message}`;
+  }
+}
