@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { askGrokChatbot, ChatMessage } from '../services/groqService';
+// Changed from askGrokChatbot / grokService -> askGroqChatbot / groqService
+import { askGroqChatbot, ChatMessage } from '../services/groqService';
 
 export const AIChatbotModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -26,7 +27,8 @@ export const AIChatbotModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
       content: m.text,
     }));
 
-    const botReply = await askGrokChatbot(userText, history);
+    // Call askGroqChatbot instead of askGrokChatbot
+    const botReply = await askGroqChatbot(userText, history);
 
     setMessages((prev) => [...prev, { sender: 'bot', text: botReply }]);
     setLoading(false);
@@ -36,11 +38,11 @@ export const AIChatbotModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
     <div className="fixed bottom-6 right-6 z-50 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col h-[500px] overflow-hidden">
       {/* Header */}
       <div className="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
-        <h2 className="font-semibold text-sm">AI DB Assistant</h2>
+        <h2 className="font-semibold text-sm">Groq AI Assistant</h2>
         <button onClick={onClose} className="text-gray-300 hover:text-white font-bold">✕</button>
       </div>
 
-      {/* Message Area */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 text-sm">
         {messages.map((msg, i) => (
           <div
@@ -57,7 +59,7 @@ export const AIChatbotModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
         {loading && <div className="text-gray-400 text-xs italic">AI is thinking...</div>}
       </div>
 
-      {/* Input Field */}
+      {/* Input */}
       <div className="p-3 bg-white border-t border-gray-200 flex gap-2">
         <input
           type="text"
