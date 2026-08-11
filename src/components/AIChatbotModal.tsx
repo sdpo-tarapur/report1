@@ -85,10 +85,10 @@ export const AIChatbotModal: React.FC<AIChatbotModalProps> = ({
 
   const QUICK_PROMPTS = [
     'List all murder cases',
+    'Pending supervision notes',
     'Show overdue (>60/90d) cases',
-    'List transferred IOs',
     'Land dispute summary',
-    'Active UD cases',
+    'List transferred IOs',
   ];
 
   return (
