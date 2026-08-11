@@ -1,7 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-const XAI_API_KEY = import.meta.env.VITE_XAI_API_KEY;
-const GROK_ENDPOINT = 'https://api.x.ai/v1/chat/completions';
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -10,71 +9,61 @@ export interface ChatMessage {
 
 async function getDatabaseContext(): Promise<string> {
   try {
-    const { data: firs, error } = await supabase
+    const { data: firs } = await supabase
       .from('firs')
       .select('fir_number, status, crime_type, date, district')
-      .limit(20);
+      .limit(10);
 
-    if (error || !firs || firs.length === 0) {
-      return 'No database records found.';
-    }
-
-    return JSON.stringify(firs);
+    return firs ? JSON.stringify(firs) : 'No records found.';
   } catch (err) {
     return 'Database query unavailable.';
   }
 }
 
-export async function askGrokChatbot(
+export async function askGroqChatbot(
   userPrompt: string,
   chatHistory: ChatMessage[] = []
 ): Promise<string> {
-  if (!XAI_API_KEY) {
-    return 'Error: VITE_XAI_API_KEY is not set in environment variables.';
+  if (!GROQ_API_KEY) {
+    return 'Error: VITE_GROQ_API_KEY is missing in your .env file.';
   }
 
   const dbContext = await getDatabaseContext();
 
   const systemMessage: ChatMessage = {
     role: 'system',
-    content: `You are an intelligent AI Assistant for a Law Enforcement portal.
-Database context: ${dbContext}
-Answer the user query accurately using the database context provided.`,
+    content: `You are an AI assistant for a law enforcement dashboard. Database Context: ${dbContext}`,
   };
 
-  // Ensure clean message mapping
-  const cleanedHistory = chatHistory.filter(
-    (msg) => msg.content && msg.content.trim() !== ''
-  );
-
-  const payload = {
-    model: 'grok-2-1212', // Valid Grok model
-    messages: [systemMessage, ...cleanedHistory, { role: 'user', content: userPrompt }],
-    temperature: 0.3,
-  };
+  const messages: ChatMessage[] = [
+    systemMessage,
+    ...chatHistory,
+    { role: 'user', content: userPrompt },
+  ];
 
   try {
-    const response = await fetch(GROK_ENDPOINT, {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${XAI_API_KEY.trim()}`,
+        Authorization: `Bearer ${GROQ_API_KEY}`,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile', // 100% free high-performance model
+        messages: messages,
+        temperature: 0.2,
+      }),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errData = await response.json().catch(() => null);
-      console.error('XAI Error Details:', errData);
-      throw new Error(
-        errData?.error?.message || errData?.message || `API Error: ${response.status}`
-      );
+      throw new Error(data.error?.message || `HTTP ${response.status}`);
     }
 
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || 'No response received from Grok.';
+    return data.choices?.[0]?.message?.content || 'No response returned from Groq.';
   } catch (error: any) {
-    console.error('Grok API Error:', error);
-    return `Error communicating with Grok: ${error.message}`;
+    console.error('Groq Error:', error);
+    return `Groq API Error: ${error.message}`;
   }
 }
