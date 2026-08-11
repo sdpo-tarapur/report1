@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { askGrokChatbot, ChatMessage } from '../services/grokService';
+import { askGrokChatbot, ChatMessage } from '../services/groqService';
 
 export const AIChatbotModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
