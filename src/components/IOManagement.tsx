@@ -132,7 +132,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <button
             onClick={handleExportExcel}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Export Roster</span>
@@ -149,10 +149,9 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         </div>
       </div>
 
-      {/* Advanced Filter Bar */}
+      {/* Filter Controls */}
       <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
-          {/* Search */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
             <input
@@ -164,7 +163,6 @@ export const IOManagement: React.FC<IOManagementProps> = ({
             />
           </div>
 
-          {/* PS Filter */}
           {!activePS && (
             <div>
               <select
@@ -182,7 +180,6 @@ export const IOManagement: React.FC<IOManagementProps> = ({
             </div>
           )}
 
-          {/* Active / Transferred Status Filter */}
           <div>
             <select
               value={statusFilter}
@@ -195,7 +192,6 @@ export const IOManagement: React.FC<IOManagementProps> = ({
             </select>
           </div>
 
-          {/* Rank Filter */}
           <div>
             <select
               value={rankFilter}
@@ -210,7 +206,6 @@ export const IOManagement: React.FC<IOManagementProps> = ({
             </select>
           </div>
 
-          {/* Case Load Filter */}
           <div>
             <select
               value={caseLoadFilter}
@@ -232,7 +227,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         </div>
       </div>
 
-      {/* IO Cards Roster */}
+      {/* IO Roster Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredIOs.map((io) => {
           const ioCases = cases.filter((c) => c.ioName.includes(io.name) || io.name.includes(c.ioName));
@@ -280,7 +275,6 @@ export const IOManagement: React.FC<IOManagementProps> = ({
                 </div>
               )}
 
-              {/* Metrics */}
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <div>
                   <span className="text-slate-400 font-bold text-[10px] uppercase block">Active Pending</span>
@@ -314,7 +308,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         })}
       </div>
 
-      {/* Add New IO Modal */}
+      {/* ADD NEW IO MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 text-xs">
@@ -407,7 +401,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         </div>
       )}
 
-      {/* Edit Status / Transfer Modal */}
+      {/* EDIT STATUS / TRANSFER MODAL */}
       {editingIO && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 text-xs">
@@ -446,7 +440,7 @@ export const IOManagement: React.FC<IOManagementProps> = ({
         </div>
       )}
 
-      {/* View Case Records Modal */}
+      {/* VIEW ASSIGNED CASES MODAL */}
       {selectedIO && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
