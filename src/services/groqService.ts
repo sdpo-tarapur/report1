@@ -15,13 +15,13 @@ async function getDatabaseContext(): Promise<string> {
     const { data: firs, error } = await supabase
       .from('firs')
       .select('fir_number, status, crime_type, date, district')
-      .limit(10);
+      .limit(20);
 
     if (error || !firs || firs.length === 0) {
       return 'No specific database records found.';
     }
 
-    return JSON.stringify(firs);
+    return JSON.stringify(firs, null, 2);
   } catch (err) {
     return 'Database query unavailable.';
   }
@@ -40,9 +40,8 @@ export async function askGroqChatbot(
     return 'Error: VITE_GROQ_API_KEY is not defined in your environment variables.';
   }
 
- const dbContext = await getDatabaseContext();
+  const dbContext = await getDatabaseContext();
 
-  // 1. Direct System Prompt to guide the AI
   const systemMessage: ChatMessage = {
     role: 'system',
     content: `You are an intelligent AI assistant built directly into this Law Enforcement Dashboard.
@@ -54,12 +53,7 @@ CRITICAL INSTRUCTIONS:
 
 --- LIVE SUPABASE DATABASE RECORDS ---
 ${dbContext}
--------------------------------------`
-  };
-
-  const systemMessage: ChatMessage = {
-    role: 'system',
-    content: `You are an AI assistant for a law enforcement dashboard. Database Context: ${dbContext}`,
+-------------------------------------`,
   };
 
   const cleanHistory = chatHistory
