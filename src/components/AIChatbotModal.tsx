@@ -21,13 +21,11 @@ export const AIChatbotModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
     setMessages((prev) => [...prev, { sender: 'user', text: userText }]);
     setLoading(true);
 
-    // Map existing state to Grok chat history format
     const history: ChatMessage[] = messages.map((m) => ({
       role: m.sender === 'user' ? 'user' : 'assistant',
       content: m.text,
     }));
 
-    // Call Grok service
     const botReply = await askGrokChatbot(userText, history);
 
     setMessages((prev) => [...prev, { sender: 'bot', text: botReply }]);
@@ -35,50 +33,63 @@ export const AIChatbotModal: React.FC<{ isOpen: boolean; onClose: () => void }> 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-lg p-4 flex flex-col h-[500px]">
-        {/* Header */}
-        <div className="flex justify-between items-center border-b pb-2">
-          <h2 className="font-bold text-lg">Grok AI DB Assistant</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-black">✕</button>
+    // Floating container: positioned at bottom-right, no full-screen background overlay
+    <div className="fixed bottom-6 right-6 z-50 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col h-[500px] overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+      
+      {/* Header */}
+      <div className="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+          <h2 className="font-semibold text-sm">Grok AI DB Assistant</h2>
         </div>
-
-        {/* Messages List */}
-        <div className="flex-1 overflow-y-auto my-4 space-y-2 pr-2">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`p-2 rounded-md max-w-[80%] ${
-                msg.sender === 'user'
-                  ? 'bg-blue-600 text-white ml-auto'
-                  : 'bg-gray-100 text-gray-800 mr-auto'
-              }`}
-            >
-              {msg.text}
-            </div>
-          ))}
-          {loading && <div className="text-gray-400 text-sm italic">Grok is thinking...</div>}
-        </div>
-
-        {/* Input Form */}
-        <div className="flex gap-2 border-t pt-2">
-          <input
-            type="text"
-            className="flex-1 border rounded p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Ask about cases or FIR status..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          />
-          <button
-            onClick={handleSend}
-            disabled={loading}
-            className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-          >
-            Send
-          </button>
-        </div>
+        <button 
+          onClick={onClose} 
+          className="text-gray-300 hover:text-white text-lg font-bold px-1.5 rounded hover:bg-slate-800 transition"
+        >
+          ✕
+        </button>
       </div>
+
+      {/* Messages List */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 text-sm">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`p-3 rounded-lg max-w-[85%] leading-relaxed ${
+              msg.sender === 'user'
+                ? 'bg-blue-600 text-white ml-auto rounded-br-none'
+                : 'bg-white text-gray-800 border border-gray-200 mr-auto rounded-bl-none shadow-sm'
+            }`}
+          >
+            {msg.text}
+          </div>
+        ))}
+        {loading && (
+          <div className="text-gray-400 text-xs italic bg-white p-2 rounded-lg border border-gray-200 w-max shadow-sm">
+            Grok is thinking...
+          </div>
+        )}
+      </div>
+
+      {/* Input Form */}
+      <div className="p-3 bg-white border-t border-gray-200 flex gap-2">
+        <input
+          type="text"
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Ask about cases or FIR status..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+        />
+        <button
+          onClick={handleSend}
+          disabled={loading}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition"
+        >
+          Send
+        </button>
+      </div>
+
     </div>
   );
 };
