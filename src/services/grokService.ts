@@ -72,11 +72,11 @@ If the answer is not present in the database, inform the user politely based on 
         'Content-Type': 'application/json',
         Authorization: `Bearer ${XAI_API_KEY}`,
       },
-      body: JSON.stringify({
-        model: 'grok-2-latest', // Or 'grok-beta' / 'grok-2'
-        messages: messages,
-        temperature: 0.3,
-      }),
+    body: JSON.stringify({
+  model: 'grok-2-1212', // Updated model name
+  messages: messages,
+  temperature: 0.3,
+}),
     });
 
     if (!response.ok) {
